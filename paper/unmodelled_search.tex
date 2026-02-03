@@ -1,0 +1,84 @@
+%\documentclass[aps,prd,reprint, nofootinbib]{revtex4-1}
+\documentclass[10pt,
+amsmath,
+amssymb,
+aps,
+prd,
+nofootinbib,
+noeprint,
+preprintnumbers,
+superscriptaddress,
+twocolumn]{revtex4-1}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[toc]{appendix}
+\usepackage{lineno}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{soul}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+
+\usepackage{graphicx}
+\usepackage[%
+    allcolors=blue,
+    colorlinks=true,
+]{hyperref}
+\usepackage{orcidlink}
+
+\newcommand{\GRASP}{\affiliation{Institute for Gravitational and Subatomic Physics (GRASP), Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}}
+\newcommand{\nikhef}{\affiliation{Nikhef -- National Institute for Subatomic Physics, Science Park 105, 1098 XG Amsterdam, The Netherlands}}
+
+\begin{document}
+\title{Searching for unmodelled gravitational wave signals using the null stream of the Einstein Telescope} 
+\author{Harsh~Narola}
+\email{h.b.narola@uu.nl}
+\GRASP \nikhef
+
+\date{\today}
+\newcommand{\ETT}{ET-$\Delta$}
+\begin{abstract}
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{abstract}
+
+\maketitle
+
+
+%\section{Introduction}
+\section{Introduction} 
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+\section{Null stream} 
+
+We denote the individual detectors in ET-$\Delta$ as ${\rm ET}_1$, ${\rm ET}_2$, and ${\rm ET}_3$, with 
+corresponding data streams $\vec{d}_1$, $\vec{d}_2$, and $\vec{d}_3$. Suppose that ${\rm ET}_1$ 
+records a glitch $\vec{g}$ overlapping with a GW signal $\vec{h}$, while ${\rm ET}_2$ and ${\rm ET}_3$ 
+contain only the GW signal and stationary, Gaussian noise. Then
+\begin{equation}
+\begin{aligned}
+  \vec{d}_1 &= \vec{h}_1 + \vec{n}_1 + \vec{g},\\
+  \vec{d}_2 &= \vec{h}_2 + \vec{n}_2,\\
+  \vec{d}_3 &= \vec{h}_3 + \vec{n}_3,
+\end{aligned}
+\end{equation}
+where $\vec{h}_i$ and $\vec{n}_i$ represent the signal projection and Gaussian noise in the 
+$i^\mathrm{th}$ detector, respectively. As previously mentioned, due to the geometry of the detectors, 
+$\sum_{i=1}^3 \vec{h}_i = 0$. The null stream $\vec{d}_{\rm null}$ is then given by 
+\begin{align}
+\label{eq:sum_data}
+  \vec{d}_{\mathrm{null}} &\equiv \frac{1}{\sqrt{3}}\left(\vec{d}_1 + \vec{d}_2 + \vec{d}_3\right),\\
+  \label{eq:no_signal_eq}
+  &= \frac{1}{\sqrt{3}}\left(\vec{g} + \vec{n}_1 + \vec{n}_2 + \vec{n}_3\right) \nonumber \\
+  &= \vec{g}_{\rm null} + \vec{n}_{\rm null},
+\end{align}
+where $\vec{n}_{\rm null} \equiv (\vec{n}_1 + \vec{n}_2 + \vec{n}_3)/\sqrt{3}$. The normalization factor $1/\sqrt{3}$ ensures that the noise's power spectral density equals the average of those of the individual detectors. 
+
+\section{Summary and discussion} 
+\begin{acknowledgments}
+ H.N. is supported by the research programme of the Netherlands Organisation for Scientific Research~(NWO). This material is based upon work supported by NSF's LIGO Laboratory which is a major facility fully funded by the National Science Foundation. This research has made use of data, software and/or web tools obtained from the Gravitational Wave Open Science Center (https://www.gw-openscience.org), a service of LIGO Laboratory, the LIGO Scientific Collaboration and the Virgo Collaboration. LIGO is funded by the U.S. National Science Foundation. Virgo is funded by the French Centre National de Recherche Scientifique (CNRS), the Italian Istituto Nazionale della Fisica Nucleare (INFN) and the Dutch Nikhef, with contributions by Polish and Hungarian institutes.
+\end{acknowledgments}
+
+\bibliographystyle{apsrev4-1}
+\bibliography{references}
+\end{document}
