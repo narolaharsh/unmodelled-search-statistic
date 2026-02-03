@@ -13,7 +13,3 @@
 
 1. One day of ET data which contains SN signals and glitches.
 2. Ranking statistic for the SN signals and glitches.
-
-
-[pdf](https://nightly.link/narolaharsh/unmodelled-search-statistic/workflows/paper/main/PDF.zip?h=1100831fb3cabe28ff83166fc9c5de56f3e51991)
-
