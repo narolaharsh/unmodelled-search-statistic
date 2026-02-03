@@ -10,6 +10,7 @@ jobs:
         uses: xu-cheng/latex-action@v4
         with:
           root_file: paper/unmodelled_search.tex
+          args: -pdf -pdflatex="pdflatex -interaction=nonstopmode"
       - name: Upload PDF file
         uses: actions/upload-artifact@v6
         with:
