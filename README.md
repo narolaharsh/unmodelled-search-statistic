@@ -15,4 +15,5 @@
 2. Ranking statistic for the SN signals and glitches.
 
 
-[![PDF](https://img.shields.io/badge/PDF-Latest-blue)](https://nightly.link/github.com/narolaharsh/unmodelled-search-statistic/workflows/paper/main/unmodelled_search.zip)
+[![PDF](https://img.shields.io/badge/PDF-Latest-blue)](https://nightly.link/narolaharsh/unmodelled-search-statistic/workflows/paper/main/unmodelled_search.pdf)
+
