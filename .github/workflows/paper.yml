@@ -22,11 +22,9 @@ jobs:
       - name: Compile LaTeX
         uses: xu-cheng/latex-action@v3
         with:
-          working_directory: paper  # Adjust to your paper directory
+          working_directory: paper
           root_file: unmodelled_search.tex
-          latexmk_use_lualatex: false
-          latexmk_shell_escape: false
-          args: -pdf -pdflatex="pdflatex -interaction=nonstopmode"
+
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
