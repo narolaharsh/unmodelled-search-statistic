@@ -3,7 +3,7 @@ import bilby
 import matplotlib.pyplot as plt
 from gwpy.timeseries import TimeSeriesDict
 import utils
-
+import gengli
 
 
 """
@@ -17,16 +17,20 @@ bilby.core.utils.random.seed(seed)
 ###### time-frequency volume, detectors #####
 outdir = "deleteme"
 label = "deleteme"
-frame_duration = 512
+frame_duration = 32
 sampling_frequency = 4096
 detector = 'ET'
 minimum_frequency = 20
 start_time = 3600
 signal_duration = 2
 parameters = {'ra': 0.0, 'dec': 0.0, 'psi': 0.0}
-inject_sn_signals  = True
-N_signals = 5
-injection_times = np.random.uniform(start_time, start_time+frame_duration, N_signals)
+inject_sn_signals  = False
+N_signals = 1
+padding = 5
+injection_times = np.random.uniform(start_time + padding, start_time+frame_duration - padding, N_signals)
+generator = gengli.glitch_generator('L1')
+
+inject_glitch = True
 #############################################
 if inject_sn_signals:
     polas = utils.generate_supernova_signal(target_snr = 1000, duration=frame_duration)
@@ -41,7 +45,7 @@ else:
     tilt_2=1.0,
     phi_12=1.7,
     phi_jl=0.3,
-    luminosity_distance=1000.0,
+    luminosity_distance=20000.0,
     theta_jn=0.4,
     psi=2.659,
     phase=1.3,
@@ -68,14 +72,23 @@ print('polas initial', len(polas['plus']))
 #############################################
 
 ifos = bilby.gw.detector.InterferometerList([detector])
-ifos.set_strain_data_from_power_spectral_densities(start_time=3600, duration=frame_duration, sampling_frequency=sampling_frequency)
+ifos.set_strain_data_from_zero_noise(start_time=3600, duration=frame_duration, sampling_frequency=sampling_frequency)
 
 for ii in range(N_signals):
     parameters['geocent_time'] = injection_times[ii]
     for ifo in ifos:
         ifo.minimum_frequency = minimum_frequency
         ifo.maximum_frequency = sampling_frequency/2
-        ifo.inject_signal_from_waveform_polarizations(injection_polarizations = polas, parameters = parameters)
+        #ifo.inject_signal_from_waveform_polarizations(injection_polarizations = polas, parameters = parameters)
+
+
+glitchy_time_series = utils.inject_glitch(generator, ifos[0].time_domain_strain, sampling_frequency, start_time+10, start_time, 10)
+
+ifos[0].strain_data.set_from_time_domain_strain(glitchy_time_series, sampling_frequency = sampling_frequency, start_time = start_time, duration = frame_duration)
+
+
+
+
 
 
 utils.save_data(filename = label, outdir = outdir, detector_network = ifos)
@@ -85,8 +98,8 @@ data = np.load(f"./deleteme/deleteme.npz")
 t = np.arange(0, len(data['ET1']), 1)/sampling_frequency
 fig, axes = plt.subplots(2, 1, sharey=True, sharex=True)
 ax = axes[0]
-for tt in injection_times:
-    ax.axvline(x = tt - start_time, color = 'black')
+#for tt in injection_times:
+#    ax.axvline(x = tt - start_time, color = 'black')
 
 
 

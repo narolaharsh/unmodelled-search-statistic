@@ -7,7 +7,7 @@ sys.path.append("../ccphen/")
 import ccphen
 from bilby.gw.detector import PowerSpectralDensity
 import numpy.typing as npt
-
+from scipy.signal.windows import tukey
 import importlib.util
 
 spec = importlib.util.spec_from_file_location(
@@ -125,7 +125,7 @@ def generate_supernova_signal(
     fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
     fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
 
-    
+
 
 
     return {'plus': fft_hplus, 'cross': fft_hcross}
@@ -172,3 +172,16 @@ def scale_snr(time_domain_strain: npt.ArrayLike,
 
     return time_domain_strain * scaling_factor
 
+
+
+def inject_glitch(generator, time_domain_strain, sample_rate, injection_time, start_time, target_snr):
+
+    glitch = generator.get_glitch(seed = 22, snr = 1, srate = sample_rate)
+
+    pre_factor = target_snr / np.sqrt(np.sum(glitch*glitch)) 
+    glitch *= pre_factor
+    glitch *= tukey(len(glitch), alpha = 0.1)
+    input_time_series = TimeSeries(time_domain_strain, sample_rate=sample_rate, t0 = start_time)
+    output_time_series = utils_3g.inject_glitch(glitch, input_time_series, injection_time, psd)
+
+    return np.array(output_time_series.data)
