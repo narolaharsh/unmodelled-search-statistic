@@ -122,8 +122,9 @@ def generate_supernova_signal(
     hplus = scale_snr(hplus, target_snr=target_snr, sample_rate=sampling_frequency)
     hcross = scale_snr(hcross, target_snr=target_snr, sample_rate=sampling_frequency)
 
-    fft_hplus = bilby.core.utils.nfft(hplus, sampling_frequency)
-    fft_hcross = bilby.core.utils.nfft(hcross, sampling_frequency)
+    fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
+    fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
+
 
     return {'plus': fft_hplus, 'cross': fft_hcross}
 

@@ -23,13 +23,18 @@ detector = 'ET'
 minimum_frequency = 20
 start_time = 3600
 parameters = {'ra': 0.0, 'dec': 0.0, 'geocent_time':3800, 'psi': 0.0}
-supernovae_polas = utils.generate_supernova_signal(snr = 10)
+inject_sn_signals  = True
+
+#############################################
+if inject_sn_signals:
+    polas = utils.generate_supernova_signal(target_snr = 10)
+
+else:
+    print("Injecting BBH signals")
+    polas = {}
 
 
-print("supernovae_polas", supernovae_polas)
-
-exit()
- ## Frequency domain polarisations
+######## Frequency domain polarisations #####
 #############################################
 
 ifos = bilby.gw.detector.InterferometerList([detector])
