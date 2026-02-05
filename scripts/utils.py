@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from gwpy.timeseries import TimeSeries, TimeSeriesDict
+from gwpy.timeseries import TimeSeries
 import sys
 import bilby
 sys.path.append("../ccphen/")
@@ -28,22 +28,22 @@ psd = PowerSpectralDensity.from_power_spectral_density_file('ET_D_psd.txt')
 
 def save_data(filename, outdir, detector_network):
     """
-    Function to save data from an interferometer network 
+    Function to save data from an interferometer network
 
-
-    Return *.gwf frame file with three channles. Each should contain whitened time data from each interferometer
+    Saves whitened time domain strain data as a numpy .npz file with detector names as keys.
 
     """
 
-    output_strain = TimeSeriesDict()
+    output_strain = {}
+    null_stream = np.zeros(len(detector_network[0].time_array))
+
     for ifo in detector_network:
         whitened_data = np.array(ifo.whitened_time_domain_strain)
-        channel_name = f"{ifo.name}:STRAIN"
-        temp_timeseries = TimeSeries(whitened_data, sample_rate=4096, name=channel_name, t0 = ifo.start_time)
-        output_strain[channel_name] = temp_timeseries
-        print(temp_timeseries)
-
-    output_strain.write(f"./{outdir}/{filename}_dict.gwf")
+        null_stream += whitened_data
+        output_strain[ifo.name] = whitened_data
+        #print(f"{ifo.name}: shape={whitened_data.shape}, start_time={ifo.start_time}")
+    output_strain["null_stream"] = null_stream
+    np.savez(f"./{outdir}/{filename}.npz", **output_strain)
 
     return None
 
@@ -124,6 +124,8 @@ def generate_supernova_signal(
 
     fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
     fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
+
+    
 
 
     return {'plus': fft_hplus, 'cross': fft_hcross}
