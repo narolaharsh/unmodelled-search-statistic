@@ -176,7 +176,7 @@ def scale_snr(time_domain_strain: npt.ArrayLike,
 
 def inject_glitch(generator, time_domain_strain, sample_rate, injection_time, start_time, target_snr):
 
-    glitch = generator.get_glitch(seed = 22, snr = 1, srate = sample_rate)
+    glitch = generator.get_glitch(snr = 1, srate = sample_rate)
 
     pre_factor = target_snr / np.sqrt(np.sum(glitch*glitch)) 
     glitch *= pre_factor
