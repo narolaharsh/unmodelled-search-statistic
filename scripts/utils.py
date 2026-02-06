@@ -42,7 +42,7 @@ def save_data(filename, outdir, detector_network):
         null_stream += whitened_data
         output_strain[ifo.name] = whitened_data
         #print(f"{ifo.name}: shape={whitened_data.shape}, start_time={ifo.start_time}")
-    output_strain["null_stream"] = null_stream
+    output_strain["null_stream"] = null_stream/np.sqrt(3)
     np.savez(f"./{outdir}/{filename}.npz", **output_strain)
 
     return None
@@ -185,7 +185,7 @@ def inject_glitch(generator,
     Inject a glitch into a time-domain strain signal at a specified time and SNR.
 
     Generates a glitch waveform from the provided generator, scales it to the
-    target SNR using its L2 norm, applies a Tukey window to taper the edges,
+    target SNR applies a Tukey window to taper the edges,
     and injects it into the input strain at the given time.
 
     Parameters

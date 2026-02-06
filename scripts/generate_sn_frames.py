@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gwpy.timeseries import TimeSeriesDict
 import utils
 import gengli
-
+import os
 
 """
 Script to generate *gwf frame files for ET detector. 
@@ -15,9 +15,11 @@ seed = 2323
 bilby.core.utils.random.seed(seed)
 
 ###### time-frequency volume, detectors #####
-outdir = "deleteme"
+outdir = "./deleteme"
+if not os.path.isdir(outdir):
+    os.mkdir(outdir)
 label = "deleteme"
-frame_duration = 32
+frame_duration = 128
 sampling_frequency = 4096
 detector = 'ET'
 minimum_frequency = 20
@@ -28,8 +30,8 @@ inject_sn_signals  = False
 N_signals = 2
 N_glitches = 2
 padding = 5
-signal_injection_times = np.random.uniform(start_time + padding, start_time+frame_duration - padding, N_signals)
-glitches_injection_times = np.random.uniform(start_time + padding, start_time+frame_duration-padding, N_glitches)
+signal_injection_times = start_time + np.array([11, 21])#np.random.uniform(start_time + padding, start_time+frame_duration - padding, N_signals)
+glitches_injection_times = start_time + np.array([15, 25])#np.random.uniform(start_time + padding, start_time+frame_duration-padding, N_glitches)
 generator = gengli.glitch_generator('L1')
 
 inject_glitch = True
@@ -47,7 +49,7 @@ else:
     tilt_2=1.0,
     phi_12=1.7,
     phi_jl=0.3,
-    luminosity_distance=20000.0,
+    luminosity_distance=15000.0,
     theta_jn=0.4,
     psi=2.659,
     phase=1.3,
@@ -82,13 +84,13 @@ for ii in range(N_signals):
     for ifo in ifos:
         ifo.minimum_frequency = minimum_frequency
         ifo.maximum_frequency = sampling_frequency/2
-        ifo.inject_signal_from_waveform_polarizations(injection_polarizations = polas, parameters = parameters)
+        #ifo.inject_signal_from_waveform_polarizations(injection_polarizations = polas, parameters = parameters)
 
 ## Inject glitches in loop
 glitchy_time_series = ifos[0].time_domain_strain
 for ii in range(N_glitches):
 
-    glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, sampling_frequency, glitches_injection_times[ii], start_time, 10)
+    glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, sampling_frequency, glitches_injection_times[ii], start_time, target_snr=40)
 
 
 ## Update strain data
@@ -100,7 +102,7 @@ ifos[0].strain_data.set_from_time_domain_strain(glitchy_time_series, sampling_fr
 utils.save_data(filename = label, outdir = outdir, detector_network = ifos)
 
 
-data = np.load(f"./deleteme/deleteme.npz")
+data = np.load(f"./{outdir}/{label}.npz")
 t = np.arange(0, len(data['ET1']), 1)/sampling_frequency
 fig, axes = plt.subplots(2, 1, sharey=True, sharex=True)
 ax = axes[0]
@@ -109,7 +111,7 @@ ax = axes[0]
 for val in signal_injection_times:
     ax.axvline(x = val-start_time, color = 'black')
 for val in glitches_injection_times:
-    ax.axvline(x = val-start_time, color = 'red')
+    ax.axvline(x = val-start_time, color = 'black', ls = '--')
 
 
 ax.plot(t, data['ET1'])
@@ -119,4 +121,4 @@ ax.plot(t, data['null_stream'])
 
 for xx in axes:
     xx.grid(alpha = 0.2)
-fig.savefig('et.pdf')
+fig.savefig(f'et_{label}.pdf')

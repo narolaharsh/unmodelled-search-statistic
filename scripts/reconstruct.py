@@ -8,7 +8,8 @@ import sklearn
 import matplotlib.pyplot as plt
 
 def quick_snr(reconstruced_signal, data):
-    return np.sqrt(np.sum(reconstruced_signal*data))
+    sigma_squared = abs(np.sum(reconstruced_signal * reconstruced_signal))
+    return np.sqrt(sigma_squared) / len(reconstruced_signal)
 
 
 def process_segments(data_array, model, scaler, device, segment_size=8192):
@@ -127,7 +128,22 @@ model_fine_tuned.to(device)
 
 
 
-checkpoint_fine_tuned = torch.load("../../deepextractor/checkpoints/checkpoint_best_bilby_noise_transfer_learn.pth.tar", map_location=device, weights_only=True)
+#
+label = 1024
+data = np.load(f"./deleteme/deleteme.npz")
+
+if label==1024:
+    checkpoint_fine_tuned = torch.load("../../deepextractor/checkpoints_1024/UNET2D_glitch_target_checkpoints/checkpoint_best_bilby_noise_transfer_learn.pth.tar", map_location=device, weights_only=True)
+    plot_name = f"snr_{label}"
+
+else:
+
+    checkpoint_fine_tuned = torch.load("../../deepextractor/checkpoints/checkpoint_best_bilby_noise_transfer_learn.pth.tar", map_location=device, weights_only=True)
+    plot_name = f"snr"
+
+
+
+
 model_fine_tuned.load_state_dict(checkpoint_fine_tuned['state_dict'])
 # Ensure the model is in evaluation mode
 model_fine_tuned.eval()
@@ -136,25 +152,53 @@ model_fine_tuned.eval()
 scaler = pickle.load(open("../../deepextractor/data/scaler_bilby.pkl", 'rb'))
 
 
-data = np.load(f"./deleteme/deleteme.npz")
 
 detectors = ['ET1', 'ET2', 'ET3']
 
-
-null_stream = np.zeros(len(data['ET1']))
 
 dex_snr = {}
 for i, det in enumerate(detectors):
     input_timeseries = np.asarray(data[det])
     dex_snr[det] = process_segments(input_timeseries, model_fine_tuned, scaler, device)
 
-network_snr = np.sqrt(np.sum([dex_snr[ifo]**2 for ifo in dex_snr.keys()], axis = 0))
+
+network_snr = np.sum([dex_snr[ifo]**2 for ifo in dex_snr.keys()], axis = 0)**0.5
+#network_snr = np.sum([dex_snr[ifo] for ifo in dex_snr.keys()], axis = 0)
+
+dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, device))
 
 segment_index = np.arange(len(dex_snr['ET1']))
-fig, ax = plt.subplots(1, 1)
-ax.scatter(segment_index, dex_snr['ET1'])
+fig, axes = plt.subplots(2, 1, sharex = True, sharey = True)
+#axes[0].set_ylim(-10, 50)
+ax = axes[0]
+
+ax.scatter(segment_index, dex_snr['ET2'])
+ax.axhline(y = 0)
+#ax.set_ylim(-2, 8)
+'''
 ax.scatter(segment_index, dex_snr['ET2'])
 ax.scatter(segment_index, dex_snr['ET3'])
-ax.scatter(segment_index, network_snr)
+'''
+#ax.scatter(segment_index, network_snr, color = 'red', label = 'network statistic')
+#ax.scatter(segment_index, network_snr / dex_snr['null_stream'], color = 'black', label = 'combined statistic')
 
-fig.savefig('snr_time_series.pdf')
+ax.legend()
+
+ax = axes[1]
+ax.scatter(segment_index, dex_snr['null_stream'], color = 'blue', label = 'null stream statistic')
+#ax.scatter(segment_index, network_snr, label = 'network rho', color = 'black')
+
+ax.legend()
+
+signal_segment = np.array([11 // 2, 21 // 2])
+glitch_segment = np.array([15//2, 25//2])
+
+
+for ax in axes:
+    for v, w in zip(signal_segment, glitch_segment):
+        ax.axvline(v, color = 'black')
+        ax.axvline(w, color = 'black', ls = '--')
+
+#ax.grid(alpha = 0.2)
+
+fig.savefig(f"{plot_name}.pdf")
