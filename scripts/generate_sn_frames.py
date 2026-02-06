@@ -19,7 +19,7 @@ outdir = "./deleteme"
 if not os.path.isdir(outdir):
     os.mkdir(outdir)
 label = "deleteme"
-frame_duration = 128
+frame_duration = 256
 sampling_frequency = 4096
 detector = 'ET'
 minimum_frequency = 20
@@ -27,14 +27,14 @@ start_time = 3600
 signal_duration = 2
 parameters = {'ra': 0.0, 'dec': 0.0, 'psi': 0.0}
 inject_sn_signals  = False
-N_signals = 2
+N_signals = 1
 N_glitches = 2
 padding = 5
 signal_injection_times = start_time + np.array([11, 21])#np.random.uniform(start_time + padding, start_time+frame_duration - padding, N_signals)
 glitches_injection_times = start_time + np.array([15, 25])#np.random.uniform(start_time + padding, start_time+frame_duration-padding, N_glitches)
 generator = gengli.glitch_generator('L1')
 
-inject_glitch = True
+inject_glitch = False
 #############################################
 if inject_sn_signals:
     polas = utils.generate_supernova_signal(target_snr = 1000, duration=frame_duration)
@@ -71,7 +71,6 @@ else:
 
     
 
-print('polas initial', len(polas['plus']))
 ######## Frequency domain polarisations #####
 #############################################
 

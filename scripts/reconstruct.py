@@ -6,10 +6,19 @@ from models.models import UNET2D # DeepExtractor is based on the U-Net architect
 import pickle
 import sklearn
 import matplotlib.pyplot as plt
+import bilby
 
-def quick_snr(reconstruced_signal, data):
-    sigma_squared = abs(np.sum(reconstruced_signal * reconstruced_signal))
-    return np.sqrt(sigma_squared) / len(reconstruced_signal)
+def quick_snr(reconstruced_signal, data, duration = 2, sampling_frequency = 4096):
+    do_fft = False
+    if do_fft:
+        signal_fft, _ = bilby.core.utils.nfft(reconstruced_signal, sampling_frequency)
+        data_fft, _ = bilby.core.utils.nfft(data, sampling_frequency)
+
+        sigma_squared = 4/duration * np.real(np.sum(data_fft * np.conj(signal_fft)))
+
+    else:
+        sigma_squared = np.sum(reconstruced_signal*data)
+    return np.sqrt(abs(sigma_squared)) 
 
 
 def process_segments(data_array, model, scaler, device, segment_size=8192):
@@ -163,42 +172,41 @@ for i, det in enumerate(detectors):
 
 
 network_snr = np.sum([dex_snr[ifo]**2 for ifo in dex_snr.keys()], axis = 0)**0.5
-#network_snr = np.sum([dex_snr[ifo] for ifo in dex_snr.keys()], axis = 0)
+
+print("ET2 snr", dex_snr['ET2'])
 
 dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, device))
 
 segment_index = np.arange(len(dex_snr['ET1']))
 fig, axes = plt.subplots(2, 1, sharex = True, sharey = True)
-#axes[0].set_ylim(-10, 50)
 ax = axes[0]
 
 ax.scatter(segment_index, dex_snr['ET2'])
 ax.axhline(y = 0)
-#ax.set_ylim(-2, 8)
-'''
-ax.scatter(segment_index, dex_snr['ET2'])
-ax.scatter(segment_index, dex_snr['ET3'])
-'''
-#ax.scatter(segment_index, network_snr, color = 'red', label = 'network statistic')
-#ax.scatter(segment_index, network_snr / dex_snr['null_stream'], color = 'black', label = 'combined statistic')
 
-ax.legend()
+ax.set_xlabel("seconds")
+
 
 ax = axes[1]
 ax.scatter(segment_index, dex_snr['null_stream'], color = 'blue', label = 'null stream statistic')
-#ax.scatter(segment_index, network_snr, label = 'network rho', color = 'black')
 
 ax.legend()
 
-signal_segment = np.array([11 // 2, 21 // 2])
-glitch_segment = np.array([15//2, 25//2])
+signal_segment = np.array([11, 21])//2
+glitch_segment = np.array([15, 25])//2
 
-
+'''
 for ax in axes:
     for v, w in zip(signal_segment, glitch_segment):
         ax.axvline(v, color = 'black')
         ax.axvline(w, color = 'black', ls = '--')
-
+'''
 #ax.grid(alpha = 0.2)
-
+ax.set_xlabel("seconds")
 fig.savefig(f"{plot_name}.pdf")
+
+
+fig, ax = plt.subplots(1, 1)
+ax.hist(dex_snr['ET2'], cumulative=0, histtype='step', density = 0)
+ax.set_xlabel("SNR")
+fig.savefig('foreground.pdf')
