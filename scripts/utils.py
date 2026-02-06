@@ -174,14 +174,53 @@ def scale_snr(time_domain_strain: npt.ArrayLike,
 
 
 
-def inject_glitch(generator, time_domain_strain, sample_rate, injection_time, start_time, target_snr):
+def inject_glitch(generator,
+                   time_domain_strain: npt.ArrayLike,
+                   sample_rate: int,
+                   injection_time: float,
+                   start_time: float,
+                   target_snr: float,
+                   power_spectral_density: PowerSpectralDensity = None) -> np.ndarray:
+    """
+    Inject a glitch into a time-domain strain signal at a specified time and SNR.
 
-    glitch = generator.get_glitch(snr = 1, srate = sample_rate)
+    Generates a glitch waveform from the provided generator, scales it to the
+    target SNR using its L2 norm, applies a Tukey window to taper the edges,
+    and injects it into the input strain at the given time.
 
-    pre_factor = target_snr / np.sqrt(np.sum(glitch*glitch)) 
-    glitch *= pre_factor
-    glitch *= tukey(len(glitch), alpha = 0.1)
-    input_time_series = TimeSeries(time_domain_strain, sample_rate=sample_rate, t0 = start_time)
-    output_time_series = utils_3g.inject_glitch(glitch, input_time_series, injection_time, psd)
+    Parameters
+    ----------
+    generator : object
+        Glitch generator instance with a ``get_glitch(snr, srate)`` method.
+    time_domain_strain : array_like
+        The input time-domain strain data to inject the glitch into.
+    sample_rate : int
+        The sampling frequency in Hz.
+    injection_time : float
+        GPS time at which to inject the glitch.
+    start_time : float
+        GPS start time of the input time series.
+    target_snr : float
+        The desired signal-to-noise ratio for the injected glitch.
+    power_spectral_density : PowerSpectralDensity, optional
+        The PSD used for the injection. If None, uses the module-level ET-D PSD.
+
+    Returns
+    -------
+    np.ndarray
+        The time-domain strain with the glitch injected.
+    """
+    if power_spectral_density is None:
+        power_spectral_density = psd
+
+    # TODO: make the generator seed configurable for reproducibility
+    glitch = generator.get_glitch(snr=1, srate=sample_rate)
+
+    scaling_factor = target_snr / np.sqrt(np.sum(glitch * glitch))
+    glitch *= scaling_factor
+    glitch *= tukey(len(glitch), alpha=0.1)
+
+    input_time_series = TimeSeries(time_domain_strain, sample_rate=sample_rate, t0=start_time)
+    output_time_series = utils_3g.inject_glitch(glitch, input_time_series, injection_time, power_spectral_density)
 
     return np.array(output_time_series.data)
