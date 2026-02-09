@@ -89,7 +89,7 @@ def inject_glitches(args, ifos, generator, glitches_injection_times):
         return
     glitchy_time_series = ifos[0].time_domain_strain
     for ii in range(args.n_glitches):
-        glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, args.sampling_frequency, glitches_injection_times[ii], args.start_time, target_snr=40)
+        glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, args.sampling_frequency, glitches_injection_times[ii], args.start_time, target_snr=20)
 
     ## Update strain data
     ifos[0].strain_data.set_from_time_domain_strain(glitchy_time_series,
@@ -108,8 +108,13 @@ def main():
     parameters = {'ra': 0.0, 'dec': 0.0, 'psi': 0.0}
 
     #FIX ME. The times are chosen manually. They shold be random. 
-    signal_injection_times = args.start_time + np.array([11, 21])#np.random.uniform(start_time + padding, start_time+frame_duration - padding, N_signals)
-    glitches_injection_times = args.start_time + np.array([15, 25])#np.random.uniform(start_time + padding, start_time+frame_duration-padding, N_glitches)
+    signal_injection_times = np.sort(np.random.uniform(args.start_time + args.padding, args.start_time+args.frame_duration - args.padding, args.n_signals))
+    print("Signal injection times", signal_injection_times - args.start_time)
+    #+ np.array([11, 21])#
+    
+    glitches_injection_times = np.sort(np.random.uniform(args.start_time + args.padding, args.start_time+args.frame_duration - args.padding, args.n_glitches))
+    print("glitch injection times", glitches_injection_times - args.start_time)
+    #np.array([15, 25])
     generator = gengli.glitch_generator('L1')
 
     #############################################

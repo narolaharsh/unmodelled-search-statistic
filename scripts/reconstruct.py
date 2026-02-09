@@ -150,30 +150,37 @@ def reconstruct_signal(input_series, model, scaler, device):
 
 
 def make_plots(args, dex_snr):
-    segment_index = np.arange(len(dex_snr['ET1']))
+    segment_index = np.arange(len(dex_snr['ET1']))*2
 
     ############################################################
     fig, axes = plt.subplots(2, 1, sharex = True, sharey = True, figsize = (10, 5))
     ax = axes[0]
+    network_snr = np.sqrt(dex_snr['ET1']**2 + dex_snr['ET2']**2 + dex_snr['ET3']**2)
+    #ax.scatter(segment_index, dex_snr['ET1'], label = 'ET1 statistic', s = 10, color = 'salmon')
     
-    ax.scatter(segment_index, dex_snr['ET2'], label = 'ET2 statistic', s = 5)
+    ax.scatter(segment_index, network_snr, label = 'Network statistic', s = 10, color = 'salmon')
+    
+    combined_statistic = network_snr - dex_snr['null_stream']
+    ax.scatter(segment_index, combined_statistic, label = 'Combined (network + null stream) statistic ', s = 10, marker = 'x', 
+               color = 'black')
+
 
 
     ax = axes[1]
-    ax.scatter(segment_index, dex_snr['null_stream'], label = 'null stream statistic', s = 5)
+    ax.scatter(segment_index, dex_snr['null_stream'], label = 'Null stream statistic', s = 5)
     ax.set_xlabel("Seconds")
 
 
     for zz in axes:
         zz.set_ylabel("DE SNR")
-        zz.legend()
+        zz.legend(fancybox = True, frameon = True, fontsize = 8)
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
     ############################################################
 
 
     fig, ax = plt.subplots(1, 1)
-    ax.hist(dex_snr['ET2'], cumulative=0, histtype='step', density = 0, 
-            linewidth = 2, label = 'ET2', bins = np.arange())
+    ax.hist(dex_snr['ET1'], cumulative=0, histtype='step', density = 0, 
+            linewidth = 2, label = 'ET1')
     ax.hist(dex_snr['null_stream'], cumulative=0, histtype='step', density = 0, 
             linewidth = 2, label = 'Null stream')
     ax.set_xlabel("SNR")

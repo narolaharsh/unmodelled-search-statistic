@@ -214,12 +214,12 @@ def inject_glitch(generator,
         power_spectral_density = psd
 
     # TODO: make the generator seed configurable for reproducibility
-    glitch = generator.get_glitch(snr=1, srate=sample_rate)
+    x = np.random.randint(100)
+    glitch = generator.get_glitch(snr=1, srate=sample_rate, seed = x)
 
     scaling_factor = target_snr / np.sqrt(np.sum(glitch * glitch))
     glitch *= scaling_factor
     glitch *= tukey(len(glitch), alpha=0.1)
-
     input_time_series = TimeSeries(time_domain_strain, sample_rate=sample_rate, t0=start_time)
     output_time_series = utils_3g.inject_glitch(glitch, input_time_series, injection_time, power_spectral_density)
 
