@@ -9,4 +9,4 @@ python generate_frames.py --outdir ${outdir} \
 --n-glitches 5 \
 --padding 10  --seed 15
 python reconstruct.py --outdir ${outdir} \
---label ${label} --data ${outdir}/${label}_frames.npz
+--label ${label} --data ${outdir}/${label}_frames.npz --delta-t 0.5

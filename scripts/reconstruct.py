@@ -21,6 +21,8 @@ def parse_args():
     parser.add_argument("--model", type = str, default = "../../deepextractor/checkpoints_1024/UNET2D_glitch_target_checkpoints/checkpoint_best_bilby_noise_transfer_learn.pth.tar")
     parser.add_argument("--outdir", type = str, default="deleteme")
     parser.add_argument("--label", type = str, default="deleteme")
+    parser.add_argument("--sampling-frequency", type = float, default = 4096)
+    parser.add_argument("--delta-t", type = float, default=2, help = "Sliding duration for the DE window")
 
     return parser.parse_args()
 
@@ -37,7 +39,7 @@ def compute_snr(reconstruced_signal, data, duration = 2, sampling_frequency = 40
     return np.sqrt(abs(sigma_squared)) 
 
 
-def process_segments(data_array, model, scaler, device, segment_size=8192):
+def process_segments(data_array, model, scaler, delta_t, sampling_frequency, device, segment_size=8192):
     """
     Divide data into segments, reconstruct signal for each, and return SNR values.
 
@@ -52,18 +54,27 @@ def process_segments(data_array, model, scaler, device, segment_size=8192):
         snr_values: List of SNR values for each segment
     """
     n_samples = len(data_array)
-    n_segments = n_samples // segment_size
+    #n_segments = n_samples // segment_size
 
     snr_values = []
+    start_idx=0
 
-    for i in tqdm(range(n_segments)):
-        start_idx = i * segment_size
-        end_idx = start_idx + segment_size
+    end_idx=8192
+
+    bins = np.arange(0, n_samples - segment_size + 1, int(delta_t*sampling_frequency), dtype=int)
+
+    for ii in tqdm(range(len(bins)-1)):
+        start_idx = bins[ii]
+        end_idx = bins[ii+1]
         segment = data_array[start_idx:end_idx]
-
         reconstructed = reconstruct_signal(segment, model, scaler, device)
         snr = compute_snr(reconstructed, segment)
         snr_values.append(snr)
+
+
+    
+
+        
 
     return np.array(snr_values)
 
@@ -211,9 +222,11 @@ def main():
     dex_snr = {}
     for i, det in enumerate(detectors):
         input_timeseries = np.asarray(data[det])
-        dex_snr[det] = process_segments(input_timeseries, model_fine_tuned, scaler, device)
+        dex_snr[det] = process_segments(input_timeseries, model_fine_tuned, scaler, 
+                                        args.delta_t, args.sampling_frequency, device)
 
-    dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, device))
+    dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
+                                                          args.delta_t, args.sampling_frequency, device))
 
     make_plots(args, dex_snr)
 
