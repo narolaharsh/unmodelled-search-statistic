@@ -10,6 +10,8 @@ import bilby
 import argparse
 import os
 from tqdm import tqdm
+import scienceplots
+plt.style.use(['science'])
 
 
 
@@ -151,26 +153,31 @@ def make_plots(args, dex_snr):
     segment_index = np.arange(len(dex_snr['ET1']))
 
     ############################################################
-    fig, axes = plt.subplots(2, 1, sharex = True, sharey = True)
+    fig, axes = plt.subplots(2, 1, sharex = True, sharey = True, figsize = (10, 5))
     ax = axes[0]
+    
+    ax.scatter(segment_index, dex_snr['ET2'], label = 'ET2 statistic', s = 5)
 
-    ax.scatter(segment_index, dex_snr['ET2'])
-
-    ax.set_xlabel("Seconds")
 
     ax = axes[1]
-    ax.scatter(segment_index, dex_snr['null_stream'], color = 'blue', label = 'null stream statistic')
-
-    ax.legend()
-
+    ax.scatter(segment_index, dex_snr['null_stream'], label = 'null stream statistic', s = 5)
     ax.set_xlabel("Seconds")
+
+
+    for zz in axes:
+        zz.set_ylabel("DE SNR")
+        zz.legend()
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
     ############################################################
 
 
     fig, ax = plt.subplots(1, 1)
-    ax.hist(dex_snr['ET2'], cumulative=0, histtype='step', density = 0)
+    ax.hist(dex_snr['ET2'], cumulative=0, histtype='step', density = 0, 
+            linewidth = 2, label = 'ET2', bins = np.arange())
+    ax.hist(dex_snr['null_stream'], cumulative=0, histtype='step', density = 0, 
+            linewidth = 2, label = 'Null stream')
     ax.set_xlabel("SNR")
+    ax.legend()
     fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_histogram.pdf")
 
 
