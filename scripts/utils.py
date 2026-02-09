@@ -43,7 +43,7 @@ def save_data(filename, outdir, detector_network):
         output_strain[ifo.name] = whitened_data
         #print(f"{ifo.name}: shape={whitened_data.shape}, start_time={ifo.start_time}")
     output_strain["null_stream"] = null_stream/np.sqrt(3)
-    np.savez(f"./{outdir}/{filename}.npz", **output_strain)
+    np.savez(f"./{outdir}/{filename}_frames.npz", **output_strain)
 
     return None
 

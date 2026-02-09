@@ -171,7 +171,7 @@ def make_plots(args, dex_snr):
     fig, ax = plt.subplots(1, 1)
     ax.hist(dex_snr['ET2'], cumulative=0, histtype='step', density = 0)
     ax.set_xlabel("SNR")
-    fig.savefig(f"{args.outdir}/{args.label}/snr_foreground_histogram.pdf")
+    fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_histogram.pdf")
 
 
 def main():
