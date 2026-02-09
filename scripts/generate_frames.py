@@ -126,7 +126,7 @@ def main():
 
     if args.plot_timeseries == 1:
 
-        data = np.load(f"./{args.outdir}/{args.label}.npz")
+        data = np.load(f"./{args.outdir}/{args.label}_frames.npz")
         t = np.arange(0, len(data['ET1']), 1)/args.sampling_frequency
         fig, axes = plt.subplots(2, 1, sharey=True, sharex=True)
         ax = axes[0]

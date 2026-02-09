@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import bilby
 import argparse
 import os
-
+from tqdm import tqdm
 
 
 
@@ -54,7 +54,7 @@ def process_segments(data_array, model, scaler, device, segment_size=8192):
 
     snr_values = []
 
-    for i in range(n_segments):
+    for i in tqdm(range(n_segments)):
         start_idx = i * segment_size
         end_idx = start_idx + segment_size
         segment = data_array[start_idx:end_idx]
