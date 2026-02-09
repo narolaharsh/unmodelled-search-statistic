@@ -6,6 +6,8 @@ import utils
 import gengli
 import os
 import argparse
+import json
+import logging
 
 """
 Script to generate *gwf frame files for ET detector.
@@ -29,59 +31,42 @@ def parse_args():
     parser.add_argument("--n-glitches", type=int, default=1, help="Number of glitches to inject")
     parser.add_argument("--padding", type=float, default=5.0, help="Length of the segments near the edge where we do not inject anything")
     parser.add_argument("--plot-timeseries", type = int, default = 1, help = "Set to 1 if you want to make plots for sanity checks.")
+    parser.add_argument("--signal-catalog", type = str, help = 'Injection file from which the parameters should be read')
     return parser.parse_args()
 
 
-def inject_signals(args, ifos, parameters, signal_injection_times):
+def inject_signals(args, ifos, injection_catalog, signal_injection_times):
     if args.inject_signals == 0:
         return
 
-    elif args.inject_signals == 1:
-        injection_parameters = dict(
-            mass_1=45.0,
-            mass_2=44.0,
-            a_1=0.,
-            a_2=0.,
-            tilt_1=0.,
-            tilt_2=1.,
-            phi_12=1.,
-            phi_jl=0.,
-            luminosity_distance=15000.0,
-            theta_jn=0.4,
-            psi=2.659,
-            phase=1.3,
-            ra=parameters['ra'],
-            dec=parameters['dec'])
+    for ifo in ifos:
+        ifo.minimum_frequency = args.minimum_frequency
+        ifo.maximum_frequency = args.sampling_frequency / 2
 
-        waveform_arguments = dict(waveform_approximant="IMRPhenomXPHM", reference_frequency=50.0, minimum_frequency=args.minimum_frequency)
-
+    if args.inject_signals == 1:
         waveform_generator = bilby.gw.WaveformGenerator(
             duration=args.frame_duration,
             sampling_frequency=args.sampling_frequency,
             frequency_domain_source_model=bilby.gw.source.lal_binary_black_hole,
             parameter_conversion=bilby.gw.conversion.convert_to_lal_binary_black_hole_parameters,
-            waveform_arguments=waveform_arguments,
+            waveform_arguments=dict(waveform_approximant="IMRPhenomXPHM", reference_frequency=50.0, minimum_frequency=args.minimum_frequency),
         )
-        polas = waveform_generator.frequency_domain_strain(injection_parameters)
-
         for ii in range(args.n_signals):
-            parameters['geocent_time'] = signal_injection_times[ii]
+
+            i_idx = np.random.randint(len(injection_catalog))
+            signal_parameters = injection_catalog[f"injection_{i_idx}"]
+            polas = waveform_generator.frequency_domain_strain(signal_parameters)
+            signal_parameters['geocent_time'] = signal_injection_times[ii]
             for ifo in ifos:
-                ifo.minimum_frequency = args.minimum_frequency
-                ifo.maximum_frequency = args.sampling_frequency / 2
-                ifo.inject_signal_from_waveform_polarizations(injection_polarizations=polas, parameters=parameters)
-
-
+                ifo.inject_signal_from_waveform_polarizations(injection_polarizations=polas, parameters=signal_parameters)
 
     elif args.inject_signals == 2:
         polas = utils.generate_supernova_signal(target_snr=1000, duration=args.frame_duration)
-
         for ii in range(args.n_signals):
-            parameters['geocent_time'] = signal_injection_times[ii]
+
+            sky_parameters = {'geocent_time': signal_injection_times[ii], 'ra': 0.0, 'dec': 0.0, 'psi':0.0}
             for ifo in ifos:
-                ifo.minimum_frequency = args.minimum_frequency
-                ifo.maximum_frequency = args.sampling_frequency / 2
-                ifo.inject_signal_from_waveform_polarizations(injection_polarizations=polas, parameters=parameters)
+                ifo.inject_signal_from_waveform_polarizations(injection_polarizations=polas, parameters=sky_parameters)
 
 
 def inject_glitches(args, ifos, generator, glitches_injection_times):
@@ -89,12 +74,25 @@ def inject_glitches(args, ifos, generator, glitches_injection_times):
         return
     glitchy_time_series = ifos[0].time_domain_strain
     for ii in range(args.n_glitches):
-        glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, args.sampling_frequency, glitches_injection_times[ii], args.start_time, target_snr=20)
+        target_snr = np.random.uniform(7, 100, 1)
+        glitchy_time_series = utils.inject_glitch(generator, glitchy_time_series, 
+                                                  args.sampling_frequency, glitches_injection_times[ii], 
+                                                  args.start_time, 
+                                                  target_snr=target_snr)
 
     ## Update strain data
     ifos[0].strain_data.set_from_time_domain_strain(glitchy_time_series,
                                                     sampling_frequency=args.sampling_frequency,
                                                     start_time=args.start_time, duration=args.frame_duration)
+
+
+def setup_logger(outdir, label):
+    logger = logging.getLogger("generate_frames")
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(f"{outdir}/{label}.log")
+    fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(fh)
+    return logger
 
 
 def main():
@@ -105,29 +103,35 @@ def main():
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
 
-    parameters = {'ra': 0.0, 'dec': 0.0, 'psi': 0.0}
+    logger = setup_logger(args.outdir, args.label)
+    logger.info("Arguments: %s", vars(args))
 
-    #FIX ME. The times are chosen manually. They shold be random. 
+
+    injection_catalog = json.load(open(args.signal_catalog, "r"))
+
     signal_injection_times = np.sort(np.random.uniform(args.start_time + args.padding, args.start_time+args.frame_duration - args.padding, args.n_signals))
-    print("Signal injection times", signal_injection_times - args.start_time)
-    #+ np.array([11, 21])#
-    
+    logger.info("Signal injection times (relative): %s", signal_injection_times - args.start_time)
+
     glitches_injection_times = np.sort(np.random.uniform(args.start_time + args.padding, args.start_time+args.frame_duration - args.padding, args.n_glitches))
-    print("glitch injection times", glitches_injection_times - args.start_time)
-    #np.array([15, 25])
+    logger.info("Glitch injection times (relative): %s", glitches_injection_times - args.start_time)
+
     generator = gengli.glitch_generator('L1')
 
     #############################################
+    
 
     ifos = bilby.gw.detector.InterferometerList(["ET"])
     ifos.set_strain_data_from_zero_noise(start_time=args.start_time,
                                                        duration=args.frame_duration, sampling_frequency=args.sampling_frequency)
 
-    inject_signals(args, ifos, parameters, signal_injection_times)
+    inject_signals(args, ifos, injection_catalog, signal_injection_times)
+    logger.info("Signal injection complete (mode=%d, n_signals=%d)", args.inject_signals, args.n_signals)
 
     inject_glitches(args, ifos, generator, glitches_injection_times)
+    logger.info("Glitch injection complete (inject_glitches=%d, n_glitches=%d)", args.inject_glitches, args.n_glitches)
 
     utils.save_data(filename = args.label, outdir = args.outdir, detector_network = ifos)
+    logger.info("Data saved to %s/%s_frames.npz", args.outdir, args.label)
 
     if args.plot_timeseries == 1:
 
