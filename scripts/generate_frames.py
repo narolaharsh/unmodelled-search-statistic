@@ -14,7 +14,7 @@ The frames contain gaussian noise and a supernova (SN) signal.
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate whitened gwf frame files for ET detector with gaussian noise and optional signals/glitches.")
+    parser = argparse.ArgumentParser(description="Generate whitened frame files in npz format for ET detector with gaussian noise and optional signals/glitches.")
     parser.add_argument("--seed", type=int, default=2323, help="Random seed")
     parser.add_argument("--outdir", type=str, default="./deleteme", help="Output directory")
     parser.add_argument("--label", type=str, default="deleteme", help="Label for output files")
@@ -42,10 +42,10 @@ def inject_signals(args, ifos, parameters, signal_injection_times):
             mass_2=44.0,
             a_1=0.,
             a_2=0.,
-            tilt_1=0.5,
-            tilt_2=1.0,
-            phi_12=1.7,
-            phi_jl=0.3,
+            tilt_1=0.,
+            tilt_2=1.,
+            phi_12=1.,
+            phi_jl=0.,
             luminosity_distance=15000.0,
             theta_jn=0.4,
             psi=2.659,
