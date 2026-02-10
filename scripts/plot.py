@@ -15,8 +15,8 @@ def parse_args():
 
 
 def make_plots(args, dex_snr):
-    first_key = list(dex_snr.keys())[0]
-    segment_index = np.arange(len(dex_snr[first_key])) * 2
+
+    segment_index = dex_snr['time_stamps']
 
     fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(10, 5))
     ax = axes[0]

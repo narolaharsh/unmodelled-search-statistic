@@ -61,7 +61,7 @@ def inject_signals(args, ifos, injection_catalog, signal_injection_times):
 
         injection_catalog (dict): Dictionary of signal parameters keyed by
             "injection_0", "injection_1", etc. Used only in mode 1.
-            
+
         signal_injection_times (array): GPS times at which to inject signals.
     """
     if args.inject_signals == 0:
@@ -79,6 +79,7 @@ def inject_signals(args, ifos, injection_catalog, signal_injection_times):
             parameter_conversion=bilby.gw.conversion.convert_to_lal_binary_black_hole_parameters,
             waveform_arguments=dict(waveform_approximant="IMRPhenomXPHM", reference_frequency=50.0, minimum_frequency=args.minimum_frequency),
         )
+
         for ii in range(args.n_signals):
 
             i_idx = np.random.randint(len(injection_catalog))
@@ -157,6 +158,7 @@ def main():
     args = parse_args()
 
     bilby.core.utils.random.seed(args.seed)
+    np.random.seed(args.seed)
 
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
@@ -188,6 +190,7 @@ def main():
 
     ifos.set_strain_data_from_power_spectral_densities(start_time=args.start_time,
                                                        duration=args.frame_duration, sampling_frequency=args.sampling_frequency)
+    
 
     inject_signals(args, ifos, injection_catalog, signal_injection_times)
     logger.info("Signal injection complete (mode=%d, n_signals=%d)", args.inject_signals, args.n_signals)

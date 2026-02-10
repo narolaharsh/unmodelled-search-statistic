@@ -12,6 +12,8 @@ import os
 import logging
 from tqdm import tqdm
 import scienceplots
+from pycbc.types import TimeSeries
+from pycbc.filter.matchedfilter import match
 plt.style.use(['science'])
 
 logger = logging.getLogger("reconstruct")
@@ -32,6 +34,7 @@ def parse_args():
     parser.add_argument("--outdir", type = str, default="deleteme")
     parser.add_argument("--label", type = str, default="deleteme")
     parser.add_argument("--sampling-frequency", type = float, default = 4096)
+    parser.add_argument("--minimum-frequency", type = float, default=20.)
     parser.add_argument("--delta-t", type = float, default=2, help = "Sliding duration for the DE window")
 
     return parser.parse_args()
@@ -47,6 +50,8 @@ def compute_snr(reconstruced_signal, data, duration = 2, sampling_frequency = 40
     else:
         sigma_squared = np.sum(reconstruced_signal*data)
     return np.sqrt(abs(sigma_squared)) 
+
+
 
 
 def process_segments(data_array, model, scaler, delta_t, sampling_frequency, device, segment_size=8192):
@@ -72,7 +77,7 @@ def process_segments(data_array, model, scaler, delta_t, sampling_frequency, dev
     end_idx=8192
 
     bins = np.arange(0, n_samples - segment_size + 1, int(delta_t*sampling_frequency), dtype=int)
-
+    time_stamps = bins[:-1] / sampling_frequency
     for ii in tqdm(range(len(bins)-1)):
         start_idx = bins[ii]
         end_idx = bins[ii+1]
@@ -86,8 +91,24 @@ def process_segments(data_array, model, scaler, delta_t, sampling_frequency, dev
 
         
 
-    return np.array(snr_values)
+    return np.array(snr_values), time_stamps
 
+
+def joint_processing(data_array_1, data_array_2, model, scaler, delta_t, sampling_frequency, device, minimum_frequency, segment_size=8192):
+    n_samples = len(data_array_1)
+    bins = np.arange(0, n_samples - segment_size + 1, int(delta_t * sampling_frequency), dtype=int)
+    time_stamps = bins[:-1]/sampling_frequency
+
+    snr_values_1, snr_values_2, match_values = [], [], []
+    for ii in tqdm(range(len(bins) - 1)):
+        seg_1, seg_2 = data_array_1[bins[ii]:bins[ii+1]], data_array_2[bins[ii]:bins[ii+1]]
+        rec_1, rec_2 = reconstruct_signal(seg_1, model, scaler, device), reconstruct_signal(seg_2, model, scaler, device)
+
+        snr_values_1.append(compute_snr(rec_1, seg_1))
+        snr_values_2.append(compute_snr(rec_2, seg_2))
+        match_values.append(compute_overlap(rec_1, rec_2, sampling_frequency, minimum_frequency))
+
+    return np.array(snr_values_1), np.array(snr_values_2), np.array(match_values), time_stamps
 
 def reconstruct_signal(input_series, model, scaler, device):
     """
@@ -167,12 +188,11 @@ def reconstruct_signal(input_series, model, scaler, device):
     return s_hat
 
 
-
-
-
-def compute_overlap(ts1, ts2):
-    
-    overlap = 1
+def compute_overlap(ts1, ts2, sampling_frequency, minimum_frequency):
+    ts1 = TimeSeries(ts1, delta_t=1/sampling_frequency, epoch=0.)
+    ts2 = TimeSeries(ts2, delta_t=1/sampling_frequency, epoch=0)
+    #PSD?
+    overlap, _ = match(ts1, ts2, low_frequency_cutoff=minimum_frequency, high_frequency_cutoff=sampling_frequency*0.5)
     return overlap
 
 
@@ -205,19 +225,23 @@ def main():
 
     detectors = [key for key in data.keys() if key != 'null_stream']
 
-    dex_snr = {}
-    for i, det in enumerate(detectors):
-        input_timeseries = np.asarray(data[det])
-        dex_snr[det] = process_segments(input_timeseries, model_fine_tuned, scaler, 
-                                        args.delta_t, args.sampling_frequency, device)
-
-    dex_snr['network_snr'] = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
+   
 
 
     if len(detectors)==3:
         logger.info("Triangle found. Computing the null stream SNR")
-        dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
-                                                          args.delta_t, args.sampling_frequency, device))
+
+        dex_snr = {}
+        for i, det in enumerate(detectors):
+            input_timeseries = np.asarray(data[det])
+            dex_snr[det], dex_snr['time_stamps'] = process_segments(input_timeseries, model_fine_tuned, scaler, 
+                                        args.delta_t, args.sampling_frequency, device)
+
+        
+        dex_snr['network_snr']  = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
+        null_stream_snr, _ = process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
+                                                          args.delta_t, args.sampling_frequency, device)
+        dex_snr['null_stream'] = np.sqrt(3)*(null_stream_snr)
     
 
 
@@ -225,10 +249,19 @@ def main():
         dex_snr['combined_statistic'] = dex_snr['network_snr'] - dex_snr['null_stream']
 
     elif len(detectors)==2:
+        dex_snr = {}
         logger.info("L-shape found. Computing mismatch integral")
-        dex_snr["mismatch_overlap"] = np.ones(len(dex_snr["network_snr"]))
 
-        dex_snr['combined_statistic'] = dex_snr['network_snr'] / dex_snr["mismatch_overlap"]
+        D0 = detectors[0]
+        D1 = detectors[1]
+        dex_snr[D0], dex_snr[D1], dex_snr["mismatch_overlap"], dex_snr['time_stamps'] = joint_processing(np.asarray(data[D0]), np.asarray(data[D1]), model_fine_tuned, scaler, 
+                                                          args.delta_t, args.sampling_frequency, device, args.minimum_frequency)
+        
+        #dex_snr["mismatch_overlap"] = np.ones(len(dex_snr["network_snr"]))
+
+        dex_snr['network_snr'] = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
+
+        dex_snr['combined_statistic'] = dex_snr['network_snr'] * dex_snr["mismatch_overlap"]
 
     np.savez(f"{args.outdir}/dex_snr.npz", **dex_snr)
 
