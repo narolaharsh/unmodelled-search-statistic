@@ -9,7 +9,7 @@ python generate_frames.py --outdir ${outdir} \
 --n-glitches 3 \
 --minimum-frequency 20 \
 --signal-catalog ./catalog/t1_catalog.json \
---padding 10  --seed 22 --detector-network ET2L
+--padding 10  --seed 22 --detector-network ETT
 python reconstruct.py --outdir ${outdir} \
 --label ${label} --data ${outdir}/${label}_frames.npz --delta-t 0.5
 python plot.py --outdir ${outdir} --label ${label} --snr-data ${outdir}/dex_snr.npz
