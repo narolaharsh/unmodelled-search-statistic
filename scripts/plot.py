@@ -37,20 +37,21 @@ def make_plots(args, dex_snr):
         zz.legend(fancybox=True, frameon=True, fontsize=8)
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
 
-    fig, ax = plt.subplots(1, 1)
-    ax.hist(dex_snr['network_snr'], cumulative=0, histtype='step', density=0,
-            linewidth=2, label='Network SNR')
-    ax.hist(dex_snr['null_stream'], cumulative=0, histtype='step', density=0,
-            linewidth=2, label='Null stream SNR')
-    ax.set_xlabel("SNR")
-    ax.legend()
-    fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_histogram.pdf")
+    make_histograms = False
+    if make_histograms:
+        fig, ax = plt.subplots(1, 1)
+        ax.hist(dex_snr['network_snr'], cumulative=0, histtype='step', density=0,
+                linewidth=2, label='Network SNR')
+        ax.hist(dex_snr['null_stream'], cumulative=0, histtype='step', density=0,
+                linewidth=2, label='Null stream SNR')
+        ax.set_xlabel("SNR")
+        ax.legend()
+        fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_histogram.pdf")
 
     fig, ax = plt.subplots(1, 1)
     ax.scatter(dex_snr['network_snr'], dex_snr['null_stream'], s = 5)
     ax.scatter(dex_snr['network_snr'], dex_snr['network_snr']-dex_snr['null_stream'], s = 5)
     #ax.scatter(dex_snr['network_snr'], dex_snr['combined_statistic'], label='signals')
-    ax.legend()
     ax.axvline(x = 8, color = 'black', ls = '--')
     ax.set_xlim(0, 50)
     ax.set_ylim(0, 50)
