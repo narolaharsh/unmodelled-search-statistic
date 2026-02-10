@@ -70,8 +70,6 @@ def inject_signals(args, ifos, injection_catalog, signal_injection_times):
 
 
 def inject_glitches(args, ifos, generator, glitches_injection_times):
-    if not args.inject_glitches:
-        return
     glitchy_time_series = ifos[0].time_domain_strain
     for ii in range(args.n_glitches):
         target_snr = np.random.uniform(7, 100, 1)
@@ -81,6 +79,9 @@ def inject_glitches(args, ifos, generator, glitches_injection_times):
                                                   target_snr=target_snr)
 
     ## Update strain data
+    from scipy.signal.windows import tukey
+
+    glitchy_time_series *= tukey(len(glitchy_time_series), 0.2)
     ifos[0].strain_data.set_from_time_domain_strain(glitchy_time_series,
                                                     sampling_frequency=args.sampling_frequency,
                                                     start_time=args.start_time, duration=args.frame_duration)
@@ -121,14 +122,15 @@ def main():
     
 
     ifos = bilby.gw.detector.InterferometerList(["ET"])
-    ifos.set_strain_data_from_zero_noise(start_time=args.start_time,
+    ifos.set_strain_data_from_power_spectral_densities(start_time=args.start_time,
                                                        duration=args.frame_duration, sampling_frequency=args.sampling_frequency)
 
     inject_signals(args, ifos, injection_catalog, signal_injection_times)
     logger.info("Signal injection complete (mode=%d, n_signals=%d)", args.inject_signals, args.n_signals)
 
-    inject_glitches(args, ifos, generator, glitches_injection_times)
-    logger.info("Glitch injection complete (inject_glitches=%d, n_glitches=%d)", args.inject_glitches, args.n_glitches)
+    if args.inject_glitches:
+        inject_glitches(args, ifos, generator, glitches_injection_times)
+        logger.info("Glitch injection complete (inject_glitches=%d, n_glitches=%d)", args.inject_glitches, args.n_glitches)
 
     utils.save_data(filename = args.label, outdir = args.outdir, detector_network = ifos)
     logger.info("Data saved to %s/%s_frames.npz", args.outdir, args.label)
@@ -139,12 +141,6 @@ def main():
         t = np.arange(0, len(data['ET1']), 1)/args.sampling_frequency
         fig, axes = plt.subplots(2, 1, sharey=True, sharex=True)
         ax = axes[0]
-
-        for a, b in zip(signal_injection_times, glitches_injection_times):
-            a-=args.start_time
-            b-=args.start_time
-            ax.axvline(x = a, color = 'black')
-            ax.axvline(x = b, color = 'black', ls = '--')
 
         ax.plot(t, data['ET1'])
 
