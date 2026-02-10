@@ -9,9 +9,19 @@ import matplotlib.pyplot as plt
 import bilby
 import argparse
 import os
+import logging
 from tqdm import tqdm
 import scienceplots
 plt.style.use(['science'])
+
+logger = logging.getLogger("reconstruct")
+
+
+def setup_logger(outdir, label):
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(f"{outdir}/{label}.log")
+    fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(fh)
 
 
 
@@ -171,6 +181,8 @@ def main():
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
 
+    setup_logger(args.outdir, args.label)
+    logger.info("Arguments: %s", vars(args))
 
     model_fine_tuned = UNET2D(in_channels=2, out_channels=2)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -184,7 +196,7 @@ def main():
 
     scaler = pickle.load(open("../../deepextractor/data/scaler_bilby.pkl", 'rb'))
 
-    detectors = ['ET1', 'ET2', 'ET3']
+    detectors = [key for key in data.keys() if key != 'null_stream']
 
     dex_snr = {}
     for i, det in enumerate(detectors):
@@ -192,13 +204,24 @@ def main():
         dex_snr[det] = process_segments(input_timeseries, model_fine_tuned, scaler, 
                                         args.delta_t, args.sampling_frequency, device)
 
-    dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
+    dex_snr['network_snr'] = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
+
+
+    if len(detectors)==3:
+        logger.info("Triangle found. Computing the null stream SNR")
+        dex_snr['null_stream'] = np.sqrt(3)*(process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
                                                           args.delta_t, args.sampling_frequency, device))
     
 
-    dex_snr['network_snr'] = np.sqrt(dex_snr['ET1']**2 + dex_snr['ET2']**2 + dex_snr['ET3']**2)
 
-    dex_snr['combined_statistic'] = dex_snr['network_snr'] - dex_snr['null_stream']
+
+        dex_snr['combined_statistic'] = dex_snr['network_snr'] - dex_snr['null_stream']
+
+    elif len(detectors)==2:
+        logger.info("L-shape found. Computing mismatch integral")
+        dex_snr["mismatch_overlap"] = np.ones(len(dex_snr["network_snr"]))
+
+        dex_snr['combined_statistic'] = dex_snr['network_snr'] / dex_snr["mismatch_overlap"]
 
     np.savez(f"{args.outdir}/dex_snr.npz", **dex_snr)
 

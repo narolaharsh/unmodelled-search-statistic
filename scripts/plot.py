@@ -15,7 +15,8 @@ def parse_args():
 
 
 def make_plots(args, dex_snr):
-    segment_index = np.arange(len(dex_snr['ET1'])) * 2
+    first_key = list(dex_snr.keys())[0]
+    segment_index = np.arange(len(dex_snr[first_key])) * 2
 
     fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(10, 5))
     ax = axes[0]
@@ -24,9 +25,14 @@ def make_plots(args, dex_snr):
     ax.scatter(segment_index, dex_snr['combined_statistic'], label='Combined statistic (Coherent excess power)', s=10, marker='x',
                color='black')
 
-
+    
     ax = axes[1]
-    ax.scatter(segment_index, dex_snr['null_stream'], label='Null stream statistic', s=5)
+    if 'null_stream' in dex_snr:
+        ax.scatter(segment_index, dex_snr['null_stream'], label='Null stream statistic', s=5)
+    elif 'mismatch_overlap' in dex_snr:
+        ax.scatter(segment_index, dex_snr['mismatch_overlap'], label='Mismatch overlap statistic', s=5)
+    else:
+        raise ValueError("Neither 'null_stream' nor 'mismatch_overlap' found in data")
     ax.axhline(y = 8, color = 'black', ls = '--')
 
     ax.set_xlabel("Seconds")
@@ -37,29 +43,19 @@ def make_plots(args, dex_snr):
         zz.legend(fancybox=True, frameon=True, fontsize=8)
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
 
-    make_histograms = False
-    if make_histograms:
+    if 'null_stream' in dex_snr:
         fig, ax = plt.subplots(1, 1)
-        ax.hist(dex_snr['network_snr'], cumulative=0, histtype='step', density=0,
-                linewidth=2, label='Network SNR')
-        ax.hist(dex_snr['null_stream'], cumulative=0, histtype='step', density=0,
-                linewidth=2, label='Null stream SNR')
-        ax.set_xlabel("SNR")
-        ax.legend()
-        fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_histogram.pdf")
-
-    fig, ax = plt.subplots(1, 1)
-    ax.scatter(dex_snr['network_snr'], dex_snr['null_stream'], s = 5)
-    ax.scatter(dex_snr['network_snr'], dex_snr['network_snr']-dex_snr['null_stream'], s = 5)
-    #ax.scatter(dex_snr['network_snr'], dex_snr['combined_statistic'], label='signals')
-    ax.axvline(x = 8, color = 'black', ls = '--')
-    ax.set_xlim(0, 50)
-    ax.set_ylim(0, 50)
-    ax.grid()
-    ax.set_aspect("equal")
-    ax.set_xlabel("Network SNR")
-    ax.set_ylabel("Null stream SNR")
-    fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
+        ax.scatter(dex_snr['network_snr'], dex_snr['null_stream'], s = 5)
+        ax.scatter(dex_snr['network_snr'], dex_snr['network_snr']-dex_snr['null_stream'], s = 5)
+        #ax.scatter(dex_snr['network_snr'], dex_snr['combined_statistic'], label='signals')
+        ax.axvline(x = 8, color = 'black', ls = '--')
+        ax.set_xlim(0, 50)
+        ax.set_ylim(0, 50)
+        ax.grid()
+        ax.set_aspect("equal")
+        ax.set_xlabel("Network SNR")
+        ax.set_ylabel("Null stream SNR")
+        fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
 
 
 

@@ -37,6 +37,33 @@ def parse_args():
 
 
 def inject_signals(args, ifos, injection_catalog, signal_injection_times):
+    """
+    Inject gravitational-wave signals into the interferometer strain data.
+
+    Supports two injection modes controlled by args.inject_signals:
+        0 - No injection (returns immediately).
+        1 - Binary black hole signals using IMRPhenomXPHM. For each injection,
+            a random entry is drawn from the injection_catalog and injected
+            into all ifos at the corresponding time in signal_injection_times.
+        2 - Supernova signals. A single waveform is generated and injected
+            into all ifos at each time in signal_injection_times with fixed
+            sky location (ra=0, dec=0, psi=0).
+
+    Args:
+        args: Parsed command-line arguments. Expected attributes:
+            inject_signals (int): Injection mode (0, 1, or 2).
+            n_signals (int): Number of signals to inject.
+            minimum_frequency (float): Lower frequency bound for the ifos and waveform.
+            sampling_frequency (float): Sampling frequency in Hz.
+            frame_duration (float): Duration of the data frame in seconds.
+
+        ifos: bilby InterferometerList to inject signals into (modified in place).
+
+        injection_catalog (dict): Dictionary of signal parameters keyed by
+            "injection_0", "injection_1", etc. Used only in mode 1.
+            
+        signal_injection_times (array): GPS times at which to inject signals.
+    """
     if args.inject_signals == 0:
         return
 
@@ -75,8 +102,29 @@ logger = logging.getLogger("generate_frames")
 
 def inject_glitches(args, ifos, generator, glitches_injection_times, glitchy_ifo):
     """
-    Injects blip glitches in the ifos specified by glitchy_ifo using the
-    time stamps from glitches_injection_times.
+    Inject blip glitches into interferometer strain data.
+
+    For each injection time, a glitch with a random SNR (uniform between 7
+    and 100) is added to the strain of the interferometer specified by
+    glitchy_ifo.
+    
+    A Tukey window (alpha=0.2) is applied to every interferometer's strain and the bilby strain data is updated
+    in place.
+
+    Args:
+        args: Parsed command-line arguments. Expected attributes:
+            sampling_frequency (float): Sampling frequency in Hz.
+            start_time (float): GPS start time of the frame.
+            frame_duration (float): Duration of the data frame in seconds.
+
+        ifos: bilby InterferometerList (modified in place).
+
+        generator: Glitch waveform generator passed to utils.inject_glitch.
+
+        glitches_injection_times (array): GPS times at which to inject glitches.
+
+        glitchy_ifo (array of int): Index into ifos for each injection,
+            determining which interferometer receives each glitch.
     """
     from scipy.signal.windows import tukey
 
@@ -132,7 +180,8 @@ def main():
     if args.detector_network=="ETT":
         ifos = bilby.gw.detector.InterferometerList(["ET"])
     elif args.detector_network=="ET2L":
-        ifos = bilby.gw.detector.InterferometerList(["ETSar", "ETLim"])
+        #ifos = bilby.gw.detector.InterferometerList(["ETSar", "ETLim"])
+        ifos = bilby.gw.detector.InterferometerList(["H1", "L1"]) #FIXME. Use the correct detector configs!
     else:
         raise ValueError("Detector network does not exist")
 
