@@ -45,6 +45,7 @@ def make_plots(args, dex_snr):
     ax.scatter(dex_snr['network_snr'], dex_snr['null_stream'], s = 5)
     #ax.scatter(dex_snr['network_snr'], dex_snr['combined_statistic'], label='signals')
     ax.legend()
+    ax.axvline(x = 8, color = 'black', ls = '--')
     ax.set_xlabel("Network SNR")
     ax.set_ylabel("Null stream SNR")
     fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
