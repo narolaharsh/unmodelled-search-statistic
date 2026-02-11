@@ -182,8 +182,9 @@ def main():
     if args.detector_network=="ETT":
         ifos = bilby.gw.detector.InterferometerList(["ET"])
     elif args.detector_network=="ET2L":
-        #ifos = bilby.gw.detector.InterferometerList(["ETSar", "ETLim"])
-        ifos = bilby.gw.detector.InterferometerList(["H1", "L1"]) #FIXME. Use the correct detector configs!
+        ETSar = bilby.gw.detector.load_interferometer("./detectors/ETSar.interferometer")
+        ETLim = bilby.gw.detector.load_interferometer("./detectors/ETLim.interferometer")
+        ifos = bilby.gw.detector.InterferometerList([ETSar, ETLim])
     else:
         raise ValueError("Detector network does not exist")
 
