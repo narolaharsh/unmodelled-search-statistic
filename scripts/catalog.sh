@@ -1,1 +1,0 @@
-python generate_catalog.py --n-events 100 --outdir catalog --label t1 --minimum-frequency 20

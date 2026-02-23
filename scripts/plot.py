@@ -18,7 +18,7 @@ def make_plots(args, dex_snr):
 
     segment_index = dex_snr['time_stamps']
 
-    fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(10, 5))
+    fig, axes = plt.subplots(2, 1, sharex=True, sharey=False, figsize=(10, 5))
     ax = axes[0]
     ax.scatter(segment_index, dex_snr['network_snr'], label='Network statistic (Excess power)', s=10, color='salmon')
     ax.axhline(y = 8, color = 'black', ls = '--')
@@ -30,7 +30,9 @@ def make_plots(args, dex_snr):
     if 'null_stream' in dex_snr:
         ax.scatter(segment_index, dex_snr['null_stream'], label='Null stream statistic', s=5)
     elif 'mismatch_overlap' in dex_snr:
-        ax.scatter(segment_index, dex_snr['mismatch_overlap'], label='Mismatch overlap statistic', s=5)
+        ax.set_ylim(-0.1, 1.1)
+        ax.set_ylabel("Overlap")
+        ax.scatter(segment_index, dex_snr['mismatch_overlap'], label='Overlap statistic', s=5)
     else:
         raise ValueError("Neither 'null_stream' nor 'mismatch_overlap' found in data")
     ax.axhline(y = 8, color = 'black', ls = '--')
@@ -39,7 +41,7 @@ def make_plots(args, dex_snr):
 
     for zz in axes:
         zz.grid(alpha = 0.2)
-        zz.set_ylabel("DE SNR")
+
         zz.legend(fancybox=True, frameon=True, fontsize=8)
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
 

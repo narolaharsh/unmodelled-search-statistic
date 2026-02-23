@@ -5,6 +5,7 @@ from gwpy.timeseries import TimeSeriesDict
 import utils
 import gengli
 import os
+from contextlib import chdir
 import argparse
 import json
 import logging
@@ -182,8 +183,11 @@ def main():
     if args.detector_network=="ETT":
         ifos = bilby.gw.detector.InterferometerList(["ET"])
     elif args.detector_network=="ET2L":
-        ETSar = bilby.gw.detector.load_interferometer("./detectors/ETSar.interferometer")
-        ETLim = bilby.gw.detector.load_interferometer("./detectors/ETLim.interferometer")
+        _scripts_dir = os.path.dirname(os.path.abspath(__file__))
+        _det_dir = os.path.join(_scripts_dir, "detectors")
+        with chdir(_scripts_dir):
+            ETSar = bilby.gw.detector.load_interferometer(os.path.join(_det_dir, "ETSar.interferometer"))
+            ETLim = bilby.gw.detector.load_interferometer(os.path.join(_det_dir, "ETLim.interferometer"))
         ifos = bilby.gw.detector.InterferometerList([ETSar, ETLim])
     else:
         raise ValueError("Detector network does not exist")
