@@ -69,19 +69,14 @@ def process_segments(data_array, model, scaler, delta_t, sampling_frequency, dev
         snr_values: List of SNR values for each segment
     """
     n_samples = len(data_array)
-    #n_segments = n_samples // segment_size
 
     snr_values = []
-    start_idx=0
-
-    end_idx=8192
-
-    bins = np.arange(0, n_samples - segment_size + 1, int(delta_t*sampling_frequency), dtype=int)
-    time_stamps = bins[:-1] / sampling_frequency
-    for ii in tqdm(range(len(bins)-1)):
+    step_size_in_idx = int(delta_t*sampling_frequency)
+    bins = np.arange(0, n_samples - step_size_in_idx, step_size_in_idx, dtype=int)
+    time_stamps = bins / sampling_frequency
+    for ii in tqdm(range(len(bins))):
         start_idx = bins[ii]
-        end_idx = bins[ii+1]
-        segment = data_array[start_idx:end_idx]
+        segment = data_array[start_idx:(start_idx + segment_size)]
         reconstructed = reconstruct_signal(segment, model, scaler, device)
         snr = compute_snr(reconstructed, segment)
         snr_values.append(snr)
