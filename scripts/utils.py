@@ -17,9 +17,6 @@ spec = importlib.util.spec_from_file_location(
 utils_3g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(utils_3g)
 
-# Now use it like:
-# utils_3g.some_function()
-
 
 
 

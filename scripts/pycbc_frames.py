@@ -13,13 +13,12 @@ from pycbc.types.timeseries import TimeSeries
 import lal
 from pycbc.waveform import get_td_waveform
 from pycbc.detector import Detector
-
-
+from pycbc.detector import add_detector_on_earth, Detector
+import utils
+from bilby.gw import conversion
 """
 Script to create ET frames using PyCBC
 """
-
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate whitened frame files in npz format for ET detector with gaussian noise and optional signals/glitches.")
@@ -39,6 +38,15 @@ def parse_args():
     parser.add_argument("--signal-catalog", type = str, help = 'Injection file from which the parameters should be read')
     parser.add_argument("--detector-network", type = str, default = 'ETT', help = "ETT for triangle and ET2L for the 2L design")
     return parser.parse_args()
+
+
+add_detector_on_earth("ETSar", longitude = 9.4167 * np.pi / 180, latitude = 40.5167 * np.pi/180, yangle=(160.5674 * np.pi / 180.0),
+                      xlength=15e3, ylength=15e3)
+
+
+
+add_detector_on_earth("ETLim", longitude = 5.92056 * np.pi/180, latitude = 50.72305 * np.pi/180, yangle=(115.0 * np.pi / 180),
+                      xlength=15e3, ylength=15e3)
 
 
 
@@ -115,85 +123,187 @@ def project_hphc_to_detectors(detectors, hp, hc, ra, dec, psi, geocent_time, ear
         Sky location and polarization angle (radians).
     geocent_time : float
         GPS time at geocenter.
-    earth_rotation : str
-        "True"  – use project_wave (accounts for Earth rotation).
-        "False" – use static antenna patterns (fp*hp + fc*hc).
+    earth_rotation : bool
 
     Returns
     -------
     list of pycbc TimeSeries, one per detector.
     """
-    if earth_rotation == "True":
+    if earth_rotation:
         return [det.project_wave(hp=hp, hc=hc, ra=ra, dec=dec, polarization=psi)
                 for det in detectors]
-    elif earth_rotation == "False":
+    else:
         antenna_patterns = get_antenna_patterns(detectors, ra, dec, psi, geocent_time)
         return [fp*hp + fc*hc for fp, fc in antenna_patterns]
-    else:
-        raise NotImplementedError("Must choose from earth rotation 'True' or 'False'.")
 
 
-def signal_generator(detector, approximant, sampling_frequency,
-                 minimum_frequency, reference_frequency, geocent_time, parameters, earth_rotation):
+def signal_generator(parameters: dict, detector_network: list, approximant: str, sampling_frequency: float,
+                 minimum_frequency: float, reference_frequency: float, earth_rotation: bool):
     
-    """
-    Return detector frame signal
+    """Generate detector-frame time-domain signals for a network of detectors.
+
+    Computes the plus and cross polarizations of a CBC waveform using
+    get_td_waveform, sets the coalescence time from parameters['geocent_time'],
+    then projects onto each detector via project_hphc_to_detectors.
+
+    Parameters
+    ----------
+    parameters : dict
+        Source parameters. Required keys:
+        mass_1, mass_2,
+        spin1x, spin1y, spin1z,
+        spin2x, spin2y, spin2z,
+        distance, coa_phase, inclination,
+        geocent_time, ra, dec, psi.
+    detector_network : list of pycbc.detector.Detector
+        Detectors onto which the signal is projected.
+    approximant : str
+        PyCBC waveform approximant (e.g. 'IMRPhenomTPHM').
+    sampling_frequency : float
+        Sampling frequency in Hz; sets delta_t = 1 / sampling_frequency.
+    minimum_frequency : float
+        Lower frequency cutoff for waveform generation in Hz.
+    reference_frequency : float
+        Reference frequency for spin definitions in Hz.
+    earth_rotation : bool
+        Whether to account for Earth rotation when projecting onto detectors.
+
+    Returns
+    -------
+    list of pycbc.types.timeseries.TimeSeries
+        Detector-frame strain time series, one per detector in detector_network.
     """
     
     hp, hc = get_td_waveform(approximant = approximant,
-                             mass_1 = parameters['mass_1'],
-                             mass_2 = parameters['mass_2'],
-                             spin1x = parameters['spin1x'], 
-                             spin1y = parameters['spin1y'],
-                             spin1z = parameters['spin1z'],
-                             spin2x = parameters['spin2x'],
-                             spin2y = parameters['spin2y'],
-                             spin2z = parameters['spin2z'],
-                             distance = parameters['distance'],
-                             coa_phase = parameters['coa_phase'],
-                             inclination = parameters['inclination'],
+                             mass1 = parameters['mass_1'],
+                             mass2 = parameters['mass_2'],
+                             spin1x = parameters['spin_1x'], 
+                             spin1y = parameters['spin_1y'],
+                             spin1z = parameters['spin_1z'],
+                             spin2x = parameters['spin_2x'],
+                             spin2y = parameters['spin_2y'],
+                             spin2z = parameters['spin_2z'],
+                             distance = parameters['luminosity_distance'],
+                             coa_phase = parameters['phase'],
+                             inclination = parameters['theta_jn'],
                              f_lower = minimum_frequency,
                              f_ref = reference_frequency,
                              delta_t = 1/sampling_frequency)
     
-    hp.start_time += geocent_time
-    hc.start_time += geocent_time
+    hp.start_time += parameters['geocent_time']
+    hc.start_time += parameters['geocent_time']
 
-    ra = parameters['ra']
-    dec = parameters['dec']
-    psi = parameters['polarization']
-
-    if detector == 'ETT':
-        detector_1 = Detector("ET1")
-        detector_2 = Detector("ET2")
-        detector_3 = Detector("ET3")
-        detector_list = [detector_1, detector_2, detector_3]
-    elif detector == 'ET2L':
-        detector_1 = Detector("ETLim")
-        detector_2 = Detector("ETSar")
-        detector_list = [detector_1, detector_2]
-
-
-    else:
-        raise NotImplementedError("No such detector.")
     
-    ht_list = project_hphc_to_detectors(detector_list, hp, hc, ra, dec, psi, geocent_time, earth_rotation)
-
+    ht_list = project_hphc_to_detectors(detector_network, hp, hc, parameters['ra'], parameters['dec'], parameters['psi'], parameters['geocent_time'], earth_rotation)
     return ht_list
 
 
+def convert_parameters(parameters, reference_frequency = 50.0):
+    parameters['reference_frequency'] = reference_frequency
+    parameters = conversion.generate_mass_parameters(parameters, source = False)
 
-def inject_signals():
-    return None
+    parameters = conversion.generate_component_spins(parameters)
+
+    return parameters
+
+
+
+
+def inject_signal_into_strain(strain_series, signal, time_series, sampling_frequency):
+    """Inject a detector-frame signal into a strain array, handling four overlap cases.
+
+    Parameters
+    ----------
+    strain_series : np.ndarray
+        The strain array to inject the signal into (modified in-place).
+    signal : array-like
+        The detector-frame signal (supports len() and slicing).
+    time_series : array-like
+        Sample times of the strain array (first and last elements define the window).
+    sampling_frequency : float
+        Sampling frequency in Hz.
+    """
+    signal_time = np.array(signal.sample_times)
+    signal_start_time = signal_time[0]
+    signal_end_time = signal_time[-1]
+
+    if signal_start_time >= time_series[0] and signal_end_time <= time_series[-1]:
+        # Signal fully inside the strain window
+        time_index = int(signal_start_time * sampling_frequency + 0.5)
+        strain_series[time_index:time_index + len(signal)] += signal
+
+    elif signal_start_time <= time_series[0] and signal_end_time <= time_series[-1]:
+        # Signal starts before the window, ends inside
+        time_index = int(signal_end_time * sampling_frequency + 0.5)
+        strain_series[:time_index] += signal[len(signal) - time_index:]
+
+    elif signal_start_time >= time_series[0] and signal_end_time >= time_series[-1]:
+        # Signal starts inside the window, ends after
+        time_index = int(signal_start_time * sampling_frequency + 0.5)
+        strain_series[time_index:] += signal[:len(strain_series) - time_index]
+
+    else:
+        # Signal fully spans the strain window
+        time_index = int((time_series[0] - signal_start_time) * sampling_frequency + 0.5)
+        strain_series[:] += signal[time_index:time_index + len(strain_series)]
+
+    return strain_series
+
+
+
 def main():
 
     args = parse_args()
+    injection_catalog = json.load(open(args.signal_catalog, "r"))
+    reference_freqeuncy = 50.0
 
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
 
 
     noise_timeseries = noise_generator(args)
+    total_time = int(args.frame_duration)
+    
+    sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
+
+    if args.detector_network == 'ET2L':
+        strain_list = [np.zeros(total_time*args.sampling_frequency), np.zeros(total_time*args.sampling_frequency)]
+        network = [Detector('ETLim'), Detector('ETSar')]
+    elif args.detector_network == 'ETT':
+        strain_list = [np.zeros(total_time*args.sampling_frequency), np.zeros(total_time*args.sampling_frequency), np.zeros(total_time*args.sampling_frequency)]
+        network = [Detector('E1'), Detector('E2'), Detector('E3')]
+    else:
+        raise NotImplementedError("No such detector.")
+    
+
+
+    for ii in range(args.n_signals):
+
+        parameters = convert_parameters(injection_catalog[f"injection_{ii}"])
+        parameters['geocent_time'] = np.random.uniform(0, args.frame_duration, 1)[0]
+
+        detector_frame_signal_list = signal_generator(parameters, network, 'IMRPhenomTPHM', 
+                                                 args.sampling_frequency, args.minimum_frequency, reference_freqeuncy, 
+                                                 earth_rotation=False)
+        
+        for jj in range(len(strain_list)):
+            strain_list[jj] = inject_signal_into_strain(strain_list[jj], 
+                                                        detector_frame_signal_list[jj], 
+                                                        sample_times,
+                                                        args.sampling_frequency)
+    
+
+
+    strain_array = np.array(strain_list)
+    print("Shape of the array", np.shape(strain_array))
+
+
+
+
+
+
+
+
 
     if args.plot_timeseries:
         n_det = len(noise_timeseries)
@@ -203,7 +313,15 @@ def main():
             ax.set_ylabel(f"{det} Strain")
         axes[-1].set_xlabel("Time [s]")
         fig.tight_layout()
-        fig.savefig(f"{args.outdir}/{args.label}.pdf")
+        fig.savefig(f"{args.outdir}/{args.label}_noise.pdf")
+
+        fig, axes = plt.subplots(n_det, 1, figsize=(10, 3 * n_det), sharex=True)
+        for ax, strain in zip(axes, strain_array):
+            ax.plot(sample_times, strain)
+            ax.set_ylabel(f"Strain")
+        axes[-1].set_xlabel("Time [s]")
+        fig.tight_layout()
+        fig.savefig(f"{args.outdir}/{args.label}_strain.pdf")
 
 
 
