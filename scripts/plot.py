@@ -59,6 +59,15 @@ def make_plots(args, dex_snr):
         ax.set_ylabel("Null stream SNR")
         fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
 
+    histogram = True
+    if histogram:  
+        if 'null_stream' in dex_snr: 
+            fig, ax = plt.subplots(1, 1)
+            ax.hist(dex_snr['null_stream'], histtype = 'step', cumulative=-1, density = 1)
+            ax.set_yscale('log')
+            ax.grid()
+            fig.savefig(f"{args.outdir}/{args.label}_background_histogram.pdf")
+
 
 
 def main():

@@ -236,12 +236,12 @@ def main():
         dex_snr['network_snr']  = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
         null_stream_snr, _ = process_segments(np.asarray(data['null_stream']), model_fine_tuned, scaler, 
                                                           args.delta_t, args.sampling_frequency, device)
-        dex_snr['null_stream'] = np.sqrt(3)*(null_stream_snr)
+        dex_snr['null_stream'] = null_stream_snr
     
 
 
 
-        dex_snr['combined_statistic'] = dex_snr['network_snr'] - dex_snr['null_stream']
+        dex_snr['combined_statistic'] = dex_snr['network_snr'] - (dex_snr['null_stream']*np.sqrt(3))
 
     elif len(detectors)==2:
         dex_snr = {}
@@ -252,8 +252,6 @@ def main():
         dex_snr[D0], dex_snr[D1], dex_snr["mismatch_overlap"], dex_snr['time_stamps'] = joint_processing(np.asarray(data[D0]), np.asarray(data[D1]), model_fine_tuned, scaler, 
                                                           args.delta_t, args.sampling_frequency, device, args.minimum_frequency)
         
-        #dex_snr["mismatch_overlap"] = np.ones(len(dex_snr["network_snr"]))
-
         dex_snr['network_snr'] = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
 
         dex_snr['combined_statistic'] = dex_snr['network_snr'] * dex_snr["mismatch_overlap"]
