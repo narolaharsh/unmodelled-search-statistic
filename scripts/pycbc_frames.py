@@ -11,6 +11,10 @@ from pycbc.noise.reproduceable import colored_noise
 from pycbc.frame import write_frame
 from pycbc.types.timeseries import TimeSeries
 import lal
+from pycbc.waveform import get_td_waveform
+from pycbc.detector import Detector
+
+
 """
 Script to create ET frames using PyCBC
 """
@@ -40,7 +44,7 @@ def parse_args():
 
 def generate_noise(args):
     """
-    Generate coloured noise using PyCBC
+    Generate coloured noise using PyCBC.
     """
     
     delta_f = 1.0/8
@@ -69,10 +73,113 @@ def generate_noise(args):
                                        low_frequency_cutoff=args.minimum_frequency, filter_duration=128)
         epoch = lal.LIGOTimeGPS(detector_noise.sample_times[0])
         ts = TimeSeries(np.array(detector_noise), delta_t=1./args.sampling_frequency, epoch=epoch)
-        write_frame(f"{args.outdir}/{args.label}_{det}_duration_{args.frame_duration}.gwf", f"{det}:STRAIN", ts)
+        write_frame(f"{args.outdir}/{args.label}_noise_only_{det}_duration_{args.frame_duration}.gwf", f"{det}:STRAIN", ts)
         noise_timeseries[det] = ts
 
     return noise_timeseries
+
+
+def get_antenna_patterns(detectors, ra, dec, psi, geocent_time):
+    """
+    Compute the plus and cross antenna pattern factors for a list of detectors.
+
+    Parameters
+    ----------
+    detectors : list of pycbc.detector.Detector
+    ra, dec, psi : float
+        Sky location and polarization angle (radians).
+    geocent_time : float
+        GPS time at geocenter.
+
+    Returns
+    -------
+    list of (fp, fc) tuples, one per detector.
+    """
+    return [
+        det.antenna_pattern(right_ascension=ra, declination=dec,
+                            polarization=psi, t_gps=geocent_time)
+        for det in detectors
+    ]
+
+
+def project_hphc_to_detectors(detectors, hp, hc, ra, dec, psi, geocent_time, earth_rotation):
+    """
+    From hp and hc, compute the detector frame signal
+
+    Parameters
+    ----------
+    detectors : list of pycbc.detector.Detector
+    hp, hc : pycbc TimeSeries
+        Plus and cross polarisations.
+    ra, dec, psi : float
+        Sky location and polarization angle (radians).
+    geocent_time : float
+        GPS time at geocenter.
+    earth_rotation : str
+        "True"  – use project_wave (accounts for Earth rotation).
+        "False" – use static antenna patterns (fp*hp + fc*hc).
+
+    Returns
+    -------
+    list of pycbc TimeSeries, one per detector.
+    """
+    if earth_rotation == "True":
+        return [det.project_wave(hp=hp, hc=hc, ra=ra, dec=dec, polarization=psi)
+                for det in detectors]
+    elif earth_rotation == "False":
+        antenna_patterns = get_antenna_patterns(detectors, ra, dec, psi, geocent_time)
+        return [fp*hp + fc*hc for fp, fc in antenna_patterns]
+    else:
+        raise NotImplementedError("Must choose from earth rotation 'True' or 'False'.")
+
+
+def signal_generator(detector, approximant, sampling_frequency,
+                 minimum_frequency, reference_frequency, geocent_time, parameters, earth_rotation):
+    
+    """
+    Return detector frame signal
+    """
+    
+    hp, hc = get_td_waveform(approximant = approximant,
+                             mass_1 = parameters['mass_1'],
+                             mass_2 = parameters['mass_2'],
+                             spin1x = parameters['spin1x'], 
+                             spin1y = parameters['spin1y'],
+                             spin1z = parameters['spin1z'],
+                             spin2x = parameters['spin2x'],
+                             spin2y = parameters['spin2y'],
+                             spin2z = parameters['spin2z'],
+                             distance = parameters['distance'],
+                             coa_phase = parameters['coa_phase'],
+                             inclination = parameters['inclination'],
+                             f_lower = minimum_frequency,
+                             f_ref = reference_frequency,
+                             delta_t = 1/sampling_frequency)
+    
+    hp.start_time += geocent_time
+    hc.start_time += geocent_time
+
+    ra = parameters['ra']
+    dec = parameters['dec']
+    psi = parameters['polarization']
+
+    if detector == 'ETT':
+        detector_1 = Detector("ET1")
+        detector_2 = Detector("ET2")
+        detector_3 = Detector("ET3")
+        detector_list = [detector_1, detector_2, detector_3]
+    elif detector == 'ET2L':
+        detector_1 = Detector("ETLim")
+        detector_2 = Detector("ETSar")
+        detector_list = [detector_1, detector_2]
+
+
+    else:
+        raise NotImplementedError("No such detector.")
+    
+    ht_list = project_hphc_to_detectors(detector_list, hp, hc, ra, dec, psi, geocent_time, earth_rotation)
+
+    return ht_list
 
 
 def main():
@@ -88,8 +195,6 @@ def main():
     if args.plot_timeseries:
         n_det = len(noise_timeseries)
         fig, axes = plt.subplots(n_det, 1, figsize=(10, 3 * n_det), sharex=True)
-        if n_det == 1:
-            axes = [axes]
         for ax, (det, ts) in zip(axes, noise_timeseries.items()):
             ax.plot(ts.sample_times, ts)
             ax.set_ylabel(f"{det} Strain")
