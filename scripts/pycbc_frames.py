@@ -42,7 +42,7 @@ def parse_args():
 
 
 
-def generate_noise(args):
+def noise_generator(args):
     """
     Generate coloured noise using PyCBC.
     """
@@ -182,6 +182,9 @@ def signal_generator(detector, approximant, sampling_frequency,
     return ht_list
 
 
+
+def inject_signals():
+    return None
 def main():
 
     args = parse_args()
@@ -190,7 +193,7 @@ def main():
         os.mkdir(args.outdir)
 
 
-    noise_timeseries = generate_noise(args)
+    noise_timeseries = noise_generator(args)
 
     if args.plot_timeseries:
         n_det = len(noise_timeseries)
