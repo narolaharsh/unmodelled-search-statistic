@@ -16,6 +16,7 @@ from pycbc.detector import Detector
 from pycbc.detector import add_detector_on_earth, Detector
 import utils
 from bilby.gw import conversion
+from tqdm import tqdm
 """
 Script to create ET frames using PyCBC
 """
@@ -277,14 +278,14 @@ def main():
     
 
 
-    for ii in range(args.n_signals):
+    for ii in tqdm(range(args.n_signals)):
 
         parameters = convert_parameters(injection_catalog[f"injection_{ii}"])
         parameters['geocent_time'] = np.random.uniform(0, args.frame_duration, 1)[0]
 
         detector_frame_signal_list = signal_generator(parameters, network, 'IMRPhenomTPHM', 
                                                  args.sampling_frequency, args.minimum_frequency, reference_freqeuncy, 
-                                                 earth_rotation=False)
+                                                 earth_rotation=True)
         
         for jj in range(len(strain_list)):
             strain_list[jj] = inject_signal_into_strain(strain_list[jj], 
@@ -295,6 +296,7 @@ def main():
 
 
     strain_array = np.array(strain_list)
+    null_stream = np.sum(strain_array, axis = 0)
     print("Shape of the array", np.shape(strain_array))
 
 
@@ -315,10 +317,12 @@ def main():
         fig.tight_layout()
         fig.savefig(f"{args.outdir}/{args.label}_noise.pdf")
 
-        fig, axes = plt.subplots(n_det, 1, figsize=(10, 3 * n_det), sharex=True)
+        fig, axes = plt.subplots(n_det+1, 1, figsize=(10, 3 * n_det), sharex=True, sharey = True)
         for ax, strain in zip(axes, strain_array):
             ax.plot(sample_times, strain)
             ax.set_ylabel(f"Strain")
+        axes[-1].plot(sample_times, null_stream)
+        axes[-1].set_ylabel("Null stream")
         axes[-1].set_xlabel("Time [s]")
         fig.tight_layout()
         fig.savefig(f"{args.outdir}/{args.label}_strain.pdf")
