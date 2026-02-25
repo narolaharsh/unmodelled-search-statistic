@@ -62,7 +62,7 @@ def noise_generator(args):
 
     if args.detector_network == "ETT":
         psd_file = './noise_curves/ET_D_psd.txt'
-        detectors = ["ET1", "ET2", "ET3"]
+        detectors = ["E1", "E2", "E3"]
     elif args.detector_network == "ET2L":
         psd_file = './noise_curves/ET_D_psd_15km.txt'
         detectors = ["ETLim", "ETSar"]
@@ -255,12 +255,16 @@ def inject_signal_into_strain(strain_series, signal, time_series, sampling_frequ
 def main():
 
     args = parse_args()
+    np.random.seed(args.seed)
+
     injection_catalog = json.load(open(args.signal_catalog, "r"))
     reference_freqeuncy = 50.0
+    signal_injection_times = np.random.uniform(0, args.frame_duration, args.n_signals)
 
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
 
+    np.savetxt(f"{args.outdir}/{args.label}_injection_times.txt", signal_injection_times, fmt="%.6f")
 
     noise_timeseries = noise_generator(args)
     total_time = int(args.frame_duration)
@@ -276,12 +280,11 @@ def main():
     else:
         raise NotImplementedError("No such detector.")
     
-
-
+    ## Generate all signals ####
     for ii in tqdm(range(args.n_signals)):
 
         parameters = convert_parameters(injection_catalog[f"injection_{ii}"])
-        parameters['geocent_time'] = np.random.uniform(0, args.frame_duration, 1)[0]
+        parameters['geocent_time'] = signal_injection_times[ii]
 
         detector_frame_signal_list = signal_generator(parameters, network, 'IMRPhenomTPHM', 
                                                  args.sampling_frequency, args.minimum_frequency, reference_freqeuncy, 
@@ -294,18 +297,19 @@ def main():
                                                         args.sampling_frequency)
     
 
+    ## Add signals to noise ####
+    for jj, det in enumerate(network):
+        channel = f"{det.name}:STRAIN"
+
+        ts_signal_only = TimeSeries(strain_list[jj], delta_t=1/args.sampling_frequency, epoch=sample_times[0])
+        write_frame(f"{args.outdir}/{args.label}_{det.name}_signal_only.gwf", channel, ts_signal_only)
+
+        signal_plus_noise = noise_timeseries[det.name] + strain_list[jj]
+        ts_signal_noise = TimeSeries(signal_plus_noise, delta_t=1/args.sampling_frequency, epoch=sample_times[0])
+        write_frame(f"{args.outdir}/{args.label}_{det.name}_signal_and_noise.gwf", channel, ts_signal_noise)
 
     strain_array = np.array(strain_list)
     null_stream = np.sum(strain_array, axis = 0)
-    print("Shape of the array", np.shape(strain_array))
-
-
-
-
-
-
-
-
 
     if args.plot_timeseries:
         n_det = len(noise_timeseries)
