@@ -52,7 +52,7 @@ add_detector_on_earth("ETLim", longitude = 5.92056 * np.pi/180, latitude = 50.72
 
 
 
-def add_signal_to_noise(noise_dict, strain_dict):
+def add_timeseries(noise_dict, strain_dict):
     """Add signal strain to noise timeseries for each detector.
 
     Parameters
@@ -437,6 +437,9 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
     plt.close(fig)
 
 
+def inject_glitch():
+    return 
+
 def main():
 
     args = parse_args()
@@ -471,7 +474,7 @@ def main():
 
     ##############################################
     ###### Add signals to noise  ################
-    signal_plus_noise_dict = add_signal_to_noise(noise_dict, signal_dict)
+    signal_plus_noise_dict = add_timeseries(noise_dict, signal_dict)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
                      sample_times, args.sampling_frequency,
