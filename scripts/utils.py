@@ -170,6 +170,26 @@ def scale_snr(time_domain_strain: npt.ArrayLike,
     return time_domain_strain * scaling_factor
 
 
+def whitened_timeseries_to_coloured_timeseries(input_timeseries : np.array, sampling_frequency: float, power_spectral_density: np.ndarray = psd):
+    """
+    Converts whitened timeseries to coloured time series
+
+    1. Convert input_timeseries to a pycbc timeseries
+    2. Convert pycbc timeseries to pycbc frequencyseries. Call it input_frequencyseries
+    3. Interpolate the power_spectral_density (N, 2) array on the sample frequency of the of input_frequencyseries
+    4. Do np.sqrt(interpolated_psd) * input_frequencyseries * duration * 2. Call it coloured_frequencyseries
+    5. Convert coloured pycbc frequencyseries to the coloured pycbc timeseries
+    6. Return coloured pycbc timeseries
+
+    """
+
+    duration = len(input_timeseries) / sampling_frequency
+
+    coloured_pycbc_timeseries = None
+    return coloured_pycbc_timeseries
+
+
+
 
 def inject_glitch(generator,
                    time_domain_strain: npt.ArrayLike,

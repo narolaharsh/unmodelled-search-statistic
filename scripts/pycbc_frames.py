@@ -440,29 +440,37 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
 def main():
 
     args = parse_args()
+    if not os.path.isdir(args.outdir):
+        os.mkdir(args.outdir)
+
     np.random.seed(args.seed)
 
     injection_catalog = json.load(open(args.signal_catalog, "r"))
     reference_frequency = 50.0
+
     signal_injection_times = np.random.uniform(0, args.frame_duration, args.n_signals)
-
-    if not os.path.isdir(args.outdir):
-        os.mkdir(args.outdir)
-
     np.savetxt(f"{args.outdir}/{args.label}_injection_times.txt", signal_injection_times, fmt="%.6f")
-
+    
+    ########################################
+    ###### Generate coloured noise ########
     noise_dict = noise_generator(args.detector_network, args.sampling_frequency,
                                  args.frame_duration, args.minimum_frequency, args.seed)
 
+   
+    
+    ########################################
+    ## Generate all signals ################
     total_time = int(args.frame_duration)
     sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
-
-    ## Generate all signals ####
+    
     signal_dict = batch_signal_generator(injection_catalog, signal_injection_times,
                                          args.detector_network, sample_times,
                                          args.sampling_frequency, args.minimum_frequency,
                                          reference_frequency)
 
+
+    ##############################################
+    ###### Add signals to noise  ################
     signal_plus_noise_dict = add_signal_to_noise(noise_dict, signal_dict)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
