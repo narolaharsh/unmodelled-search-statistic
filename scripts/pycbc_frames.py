@@ -437,8 +437,36 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
     plt.close(fig)
 
 
-def inject_glitch():
-    return 
+def inject_glitch(noise_dict, n_glitches: int, seed: int, sampling_frequency = 4096):
+    """
+    1. Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
+
+    """
+
+
+
+    generator = gengli.generator('L1')
+    glitch_bank = generator.get_glitch(N = n_glitches, seed = seed, srate = sampling_frequency)
+    injection_time = #FIXME Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
+
+
+    for ii in n_glitches:
+        # Choose one item from the noise dict randomly
+
+        noise =   # Choose one item from the noise dict randomly
+        
+        g = glitch_bank[ii]
+        g_coloured = utils.whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
+
+        t = injection_time[ii]
+
+        # In the noise timeseries find the time stamp that corresponds to t. 
+
+        # at this value add the g_coloured. Use the timeseries.inject function
+
+    glitchy_timeseries = None
+
+    return glitchy_timeseries
 
 def main():
 
