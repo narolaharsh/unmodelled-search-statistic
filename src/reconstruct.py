@@ -71,7 +71,7 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, de
     Returns:
         snr_values: List of SNR values for each segment
     """
-    whitened_frame = np.array(input_frame.whiten(segment_duration = 4, max_filter_duration = 1))
+    whitened_frame = np.array(input_frame.whiten(segment_duration = 16, max_filter_duration = 1))
 
     n_samples = len(whitened_frame)
 
