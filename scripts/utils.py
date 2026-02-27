@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pycbc.types.timeseries import TimeSeries
 from pycbc.types import FrequencySeries
-
+import gengli
 import sys
 import bilby
 sys.path.append("../ccphen/")
@@ -208,55 +208,52 @@ def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sa
     return coloured_pycbc_timeseries
 
 
+def adjust_snr(whitened_timeseries, target_snr):
+    norm = np.sum(whitened_timeseries*whitened_timeseries)**0.5
+    scaled_timeseries = whitened_timeseries * target_snr / norm
+    return scaled_timeseries
 
-
-def inject_glitch(generator,
-                   time_domain_strain: npt.ArrayLike,
-                   sample_rate: int,
-                   injection_time: float,
-                   start_time: float,
-                   target_snr: float,
-                   power_spectral_density: PowerSpectralDensity = None) -> np.ndarray:
+def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: str, sampling_frequency = 4096):
     """
-    Inject a glitch into a time-domain strain signal at a specified time and SNR.
+    1. Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
 
-    Generates a glitch waveform from the provided generator, scales it to the
-    target SNR applies a Tukey window to taper the edges,
-    and injects it into the input strain at the given time.
-
-    Parameters
-    ----------
-    generator : object
-        Glitch generator instance with a ``get_glitch(snr, srate)`` method.
-    time_domain_strain : array_like
-        The input time-domain strain data to inject the glitch into.
-    sample_rate : int
-        The sampling frequency in Hz.
-    injection_time : float
-        GPS time at which to inject the glitch.
-    start_time : float
-        GPS start time of the input time series.
-    target_snr : float
-        The desired signal-to-noise ratio for the injected glitch.
-    power_spectral_density : PowerSpectralDensity, optional
-        The PSD used for the injection. If None, uses the module-level ET-D PSD.
-
-    Returns
-    -------
-    np.ndarray
-        The time-domain strain with the glitch injected.
     """
-    if power_spectral_density is None:
-        power_spectral_density = psd
 
-    # TODO: make the generator seed configurable for reproducibility
-    x = np.random.randint(100)
-    glitch = generator.get_glitch(snr=1, srate=sample_rate, seed = x)
+    generator = gengli.glitch_generator('L1')
+    glitch_bank = generator.get_glitch(n_glitches = n_glitches, seed=seed, srate=sampling_frequency, snr = 1)
+    if n_glitches ==1:
+        glitch_bank = [glitch_bank]
 
-    scaling_factor = target_snr / np.sqrt(np.sum(glitch * glitch))
-    glitch *= scaling_factor
-    glitch *= tukey(len(glitch), alpha=0.1)
-    input_time_series = TimeSeries(time_domain_strain, sample_rate=sample_rate, t0=start_time)
-    output_time_series = utils_3g.inject_glitch(glitch, input_time_series, injection_time, power_spectral_density)
+    sample_times = np.array(list(noise_dict.values())[0].sample_times)
+    glitch_injection_time = np.random.choice(sample_times, n_glitches, replace=True)
 
-    return np.array(output_time_series.data)
+    det_names = list(noise_dict.keys())
+    glitchy_interferometer = np.random.choice(len(noise_dict), n_glitches, replace=True)
+
+    for ii in range(n_glitches):
+        det_name = det_names[glitchy_interferometer[ii]]
+
+        target_snr = np.random.uniform(0, 100, 1)[0]
+        g = adjust_snr(glitch_bank[ii], target_snr)
+        g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
+
+
+        g_coloured = utils.whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
+
+        t = glitch_injection_time[ii]
+        plot_glitches = False
+        if plot_glitches:
+            fig, ax = plt.subplots()
+            ax.plot(g_coloured.sample_times, g_coloured)
+            ax.set_xlabel("Time [s]")
+            ax.set_ylabel("Strain")
+            ax.set_title(f"Glitch {ii} injected into {det_name} at t={t:.2f} s")
+            fig.savefig(f"{outdir}/{label}_glitch_{ii}_{det_name}.pdf")
+            plt.close(fig)
+
+        g_coloured.start_time = t
+
+        noise_dict[det_name] = noise_dict[det_name].inject(g_coloured)
+
+
+    return noise_dict, glitch_injection_time, glitchy_interferometer

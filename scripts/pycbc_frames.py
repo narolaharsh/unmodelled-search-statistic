@@ -436,55 +436,6 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
     fig.savefig(f"{outdir}/{label}_strain.pdf")
     plt.close(fig)
 
-def adjust_snr(whitened_timeseries, target_snr):
-    norm = np.sum(whitened_timeseries*whitened_timeseries)**0.5
-    scaled_timeseries = whitened_timeseries * target_snr / norm
-    return scaled_timeseries
-
-def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: str, sampling_frequency = 4096):
-    """
-    1. Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
-
-    """
-
-    generator = gengli.glitch_generator('L1')
-    glitch_bank = generator.get_glitch(n_glitches = n_glitches, seed=seed, srate=sampling_frequency, snr = 1)
-    if n_glitches ==1:
-        glitch_bank = [glitch_bank]
-
-    sample_times = np.array(list(noise_dict.values())[0].sample_times)
-    glitch_injection_time = np.random.choice(sample_times, n_glitches, replace=True)
-
-    det_names = list(noise_dict.keys())
-    glitchy_interferometer = np.random.choice(len(noise_dict), n_glitches, replace=True)
-
-    for ii in range(n_glitches):
-        det_name = det_names[glitchy_interferometer[ii]]
-
-        target_snr = np.random.uniform(0, 100, 1)[0]
-        g = adjust_snr(glitch_bank[ii], target_snr)
-        g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
-
-
-        g_coloured = utils.whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
-
-        t = glitch_injection_time[ii]
-        plot_glitches = False
-        if plot_glitches:
-            fig, ax = plt.subplots()
-            ax.plot(g_coloured.sample_times, g_coloured)
-            ax.set_xlabel("Time [s]")
-            ax.set_ylabel("Strain")
-            ax.set_title(f"Glitch {ii} injected into {det_name} at t={t:.2f} s")
-            fig.savefig(f"{outdir}/{label}_glitch_{ii}_{det_name}.pdf")
-            plt.close(fig)
-
-        g_coloured.start_time = t
-
-        noise_dict[det_name] = noise_dict[det_name].inject(g_coloured)
-
-
-    return noise_dict, glitch_injection_time, glitchy_interferometer
 
 def main():
 
@@ -509,7 +460,7 @@ def main():
     ########################################
     ###### Inject glitch  ##################
     if args.inject_glitches == 1:
-        noise_dict, glitch_time, glitch_ifo = inject_glitch(noise_dict, n_glitches=args.n_glitches, seed=args.seed, outdir=args.outdir, label=args.label)
+        noise_dict, glitch_time, glitch_ifo = utils.inject_glitch(noise_dict, n_glitches=args.n_glitches, seed=args.seed, outdir=args.outdir, label=args.label)
         np.savetxt(f"{args.outdir}/{args.label}_glitch_info.dat", np.column_stack([glitch_time, glitch_ifo]), header="glitch_time glitch_ifo", comments="")
 
 
