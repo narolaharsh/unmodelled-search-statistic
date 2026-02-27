@@ -118,8 +118,8 @@ def generate_supernova_signal(
     hplus = np.array(np.real(waveform.h))
     hcross = np.array(np.imag(waveform.h))
 
-    hplus = scale_snr(hplus, target_snr=target_snr, sample_rate=sampling_frequency)
-    hcross = scale_snr(hcross, target_snr=target_snr, sample_rate=sampling_frequency)
+    hplus = scale_snr_with_psd(hplus, target_snr=target_snr, sample_rate=sampling_frequency)
+    hcross = scale_snr_with_psd(hcross, target_snr=target_snr, sample_rate=sampling_frequency)
 
     fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
     fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
@@ -131,7 +131,7 @@ def generate_supernova_signal(
 
 
 
-def scale_snr(time_domain_strain: npt.ArrayLike,
+def scale_snr_with_psd(time_domain_strain: npt.ArrayLike,
               target_snr: float,
               sample_rate: int = 4096,
               power_spectral_density: PowerSpectralDensity = None) -> np.ndarray:
