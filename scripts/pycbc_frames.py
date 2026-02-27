@@ -479,8 +479,9 @@ def main():
     ##############################################
     ###### Add signals to noise  ################
     signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
-    null_stream = sum(signal_plus_noise_dict.values())
-    write_frame(f"{args.outdir}/{args.label}_null_stream.gwf", "NULL:STRAIN", null_stream)
+    if args.detector_network=="ETT":
+        null_stream = sum(signal_plus_noise_dict.values())
+        write_frame(f"{args.outdir}/{args.label}_null_stream.gwf", "NULL:STRAIN", null_stream)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
                      sample_times, args.sampling_frequency,
