@@ -195,7 +195,7 @@ def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sa
     interpolated_psd = np.nan_to_num(interpolated_psd, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Step 3: Colour the frequency series
-    coloured_array = np.sqrt(interpolated_psd) * np.array(input_frequencyseries) * duration * 2
+    coloured_array = np.sqrt(interpolated_psd) * np.array(input_frequencyseries) * duration /2
     coloured_frequencyseries = FrequencySeries(
         coloured_array,
         delta_f=input_frequencyseries.delta_f,
