@@ -57,7 +57,7 @@ def compute_snr(reconstruced_signal, data, duration = 2, sampling_frequency = 40
 
 
 
-def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, device, segment_size=8192):
+def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, device, minimum_frequency, outdir, label, det, segment_size=8192):
     """
     Divide data into segments, reconstruct signal for each, and return SNR values.
 
@@ -71,7 +71,19 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, de
     Returns:
         snr_values: List of SNR values for each segment
     """
-    whitened_frame = np.array(input_frame.whiten(segment_duration = 16, max_filter_duration = 1))
+    whitened_frame = np.array(input_frame.whiten(segment_duration = 8, max_filter_duration = 2, low_frequency_cutoff = minimum_frequency)) / np.sqrt(sampling_frequency)
+
+
+    sample_times = np.arange(len(whitened_frame)) / sampling_frequency
+    plot = True
+    if plot:
+        fig, ax = plt.subplots()
+        ax.plot(sample_times, whitened_frame, lw=0.5)
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Whitened strain")
+        ax.set_title(f"{det} whitened frame")
+        fig.savefig(f"{outdir}/{label}_{det}_whitened.pdf")
+        plt.close(fig)
 
     n_samples = len(whitened_frame)
 
@@ -266,8 +278,9 @@ def main():
         dex_snr = {}
         for det in detectors:
 
-            dex_snr[det] = process_segments(frame_dictionary[det], model_fine_tuned, scaler, 
-                                        args.delta_t, args.sampling_frequency, device)
+            dex_snr[det] = process_segments(frame_dictionary[det], model_fine_tuned, scaler,
+                                        args.delta_t, args.sampling_frequency, device, args.minimum_frequency,
+                                        args.outdir, args.label, det)
 
         detectors.remove('null_stream')
         dex_snr['network_snr'] = sum(dex_snr[det]**2 for det in detectors) ** 0.5

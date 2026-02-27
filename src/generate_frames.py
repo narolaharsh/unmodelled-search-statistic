@@ -31,8 +31,6 @@ def parse_args():
     parser.add_argument("--sampling-frequency", type=int, default=4096, help="Sampling frequency in Hz")
     parser.add_argument("--minimum-frequency", type=float, default=20, help="Minimum frequency in Hz")
     parser.add_argument("--start-time", type=float, default=3600, help="Start time in seconds")
-    parser.add_argument("--inject-glitches", type=int, default=0, help="Set to 0 if you do not want to inject glitches")
-    parser.add_argument("--inject-signals", type=int, default = 1, help="0 will return Gaussian nosie, 1 will inject CBC, 2 will inject SN signals")
     parser.add_argument("--n-signals", type=int, default=1, help="Number of signals to inject")
     parser.add_argument("--n-glitches", type=int, default=1, help="Number of glitches to inject")
     parser.add_argument("--padding", type=float, default=5.0, help="Length of the segments near the edge where we do not inject anything")
@@ -382,6 +380,8 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
         detector_frame_signal_list = signal_generator(parameters, network, approximant,
                                                       sampling_frequency, minimum_frequency,
                                                       reference_frequency, earth_rotation=True)
+        
+        ## For each of the signal, can you compute the matched filter SNR using pycbc routines??
 
         for name, signal in zip(det_names, detector_frame_signal_list):
             strain_dict[name] = inject_signal_into_strain(strain_dict[name], signal,
@@ -459,7 +459,8 @@ def main():
    
     ########################################
     ###### Inject glitch  ##################
-    if args.inject_glitches == 1:
+    if args.n_glitches != 0:
+        print("Injecting glitches...")
         noise_dict, glitch_time, glitch_ifo = utils.inject_glitch(noise_dict, n_glitches=args.n_glitches, seed=args.seed, outdir=args.outdir, label=args.label)
         np.savetxt(f"{args.outdir}/{args.label}_glitch_info.dat", np.column_stack([glitch_time, glitch_ifo]), header="glitch_time glitch_ifo", comments="")
 
@@ -478,7 +479,12 @@ def main():
 
     ##############################################
     ###### Add signals to noise  ################
-    signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
+    if args.n_signals!=0:
+
+        signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
+    else:
+        signal_plus_noise_dict = noise_dict
+
     if args.detector_network=="ETT":
         null_stream = sum(signal_plus_noise_dict.values())
         write_frame(f"{args.outdir}/{args.label}_null_stream.gwf", "NULL:STRAIN", null_stream)

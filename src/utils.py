@@ -25,29 +25,6 @@ spec.loader.exec_module(utils_3g)
 psd = PowerSpectralDensity.from_power_spectral_density_file('ET_D_psd.txt')
 
 
-def save_data(filename, outdir, detector_network):
-    """
-    Function to save data from an interferometer network
-
-    Saves whitened time domain strain data as a numpy .npz file with detector names as keys.
-
-    """
-
-    output_strain = {}
-    null_stream = np.zeros(len(detector_network[0].time_array))
-
-    for ifo in detector_network:
-        whitened_data = np.array(ifo.whitened_time_domain_strain)
-        null_stream += whitened_data
-        output_strain[ifo.name] = whitened_data
-
-    output_strain["null_stream"] = null_stream/np.sqrt(3)
-    np.savez(f"./{outdir}/{filename}_frames.npz", **output_strain)
-
-    return None
-
-
-
 def generate_supernova_signal(
     target_snr: float,
     sampling_frequency: int = 4096,
@@ -233,7 +210,7 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: st
     for ii in range(n_glitches):
         det_name = det_names[glitchy_interferometer[ii]]
 
-        target_snr = np.random.uniform(0, 100, 1)[0]
+        target_snr = 20000.#np.random.uniform(0, 100, 1)[0]
         g = adjust_snr(glitch_bank[ii], target_snr)
         g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
 
@@ -241,7 +218,7 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: st
         g_coloured = whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
 
         t = glitch_injection_time[ii]
-        plot_glitches = False
+        plot_glitches = True
         if plot_glitches:
             fig, ax = plt.subplots()
             ax.plot(g_coloured.sample_times, g_coloured)
