@@ -14,6 +14,9 @@ import logging
 from pycbc.noise.reproduceable import colored_noise
 from pycbc.frame import write_frame
 from pycbc.types.timeseries import TimeSeries
+from pycbc.types.frequencyseries import FrequencySeries
+import pycbc.psd
+from pycbc.filter import sigma as pycbc_sigma
 import lal
 from pycbc.waveform import get_td_waveform
 from pycbc.detector import add_detector_on_earth, Detector
@@ -112,6 +115,44 @@ def write_all_frames(noise_dict, strain_dict, signal_plus_noise_dict,
         write_frame(f"{outdir}/{label}_{det}_signal_and_noise.gwf", channel, ts)
 
 
+_PSD_FILES = {
+    'ETT':  './noise_curves/ET_D_psd.txt',
+    'ET2L': './noise_curves/ET_D_psd_15km.txt',
+}
+
+
+def load_psd(detector_network, sampling_frequency, minimum_frequency, delta_f=1.0/8):
+    """Load the ET PSD for the given detector network.
+
+    Parameters
+    ----------
+    detector_network : str
+        ``'ETT'`` or ``'ET2L'``.
+    sampling_frequency : float
+        Sampling frequency in Hz; sets the Nyquist limit.
+    minimum_frequency : float
+        Lower frequency cutoff in Hz.
+    delta_f : float, optional
+        Frequency resolution of the returned PSD. Default is 1/8 Hz.
+
+    Returns
+    -------
+    pycbc.types.FrequencySeries
+    """
+    if detector_network not in _PSD_FILES:
+        raise ValueError(f"Detector network does not exist: '{detector_network}'")
+    _scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    length = int(sampling_frequency / 2 / delta_f) + 1
+    with chdir(_scripts_dir):
+        loaded_psd = pycbc.psd.from_txt(
+            os.path.join(_scripts_dir, _PSD_FILES[detector_network]),
+            length, delta_f, minimum_frequency, is_asd_file=False)
+    psd_data = np.array(loaded_psd)
+    psd_data[(psd_data == 0) | ~np.isfinite(psd_data)] = np.inf
+    return FrequencySeries(psd_data, delta_f=loaded_psd.delta_f,
+                           epoch=loaded_psd.epoch)
+
+
 def noise_generator(detector_network, sampling_frequency, frame_duration,
                     minimum_frequency, seed):
     """Generate coloured noise for each detector in the network.
@@ -133,23 +174,14 @@ def noise_generator(detector_network, sampling_frequency, frame_duration,
     -------
     dict mapping detector name (str) to pycbc.types.timeseries.TimeSeries.
     """
-    delta_f = 1.0 / 8
-    length = int(sampling_frequency / 2 / delta_f) + 1
-    _scripts_dir = os.path.dirname(os.path.abspath(__file__))
-
     if detector_network == "ETT":
-        psd_file = './noise_curves/ET_D_psd.txt'
         detectors = ["E1", "E2", "E3"]
     elif detector_network == "ET2L":
-        psd_file = './noise_curves/ET_D_psd_15km.txt'
         detectors = ["ETLim", "ETSar"]
     else:
         raise ValueError("Detector network does not exist")
 
-    with chdir(_scripts_dir):
-        power_spectral_density = pycbc.psd.from_txt(
-            os.path.join(_scripts_dir, psd_file), length, delta_f,
-            minimum_frequency, is_asd_file=False)
+    power_spectral_density = load_psd(detector_network, sampling_frequency, minimum_frequency)
 
     noise_dict = {}
     for i, det in enumerate(detectors):
@@ -337,7 +369,7 @@ _NETWORK_CONFIG = {
 
 def batch_signal_generator(injection_catalog, injection_times, detector_network,
                             sample_times, sampling_frequency, minimum_frequency,
-                            reference_frequency, approximant='IMRPhenomTPHM'):
+                            reference_frequency, approximant='IMRPhenomTPHM', psd=None):
     """Build the network, initialise strain arrays, and inject all signals.
 
     Parameters
@@ -372,6 +404,7 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
     det_names, network = _NETWORK_CONFIG[detector_network]
     n_samples = len(sample_times)
     strain_dict = {name: np.zeros(n_samples) for name in det_names}
+    snr_catalog = []
 
     for ii in tqdm(range(len(injection_times))):
         parameters = convert_parameters(injection_catalog[f"injection_{ii}"])
@@ -380,13 +413,25 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
         detector_frame_signal_list = signal_generator(parameters, network, approximant,
                                                       sampling_frequency, minimum_frequency,
                                                       reference_frequency, earth_rotation=True)
-        
-        ## For each of the signal, can you compute the matched filter SNR using pycbc routines??
+
+        if psd is not None:
+            snrs = {}
+            for name, ht in zip(det_names, detector_frame_signal_list):
+                ht_tilde = ht.to_frequencyseries()
+                psd_interp = pycbc.psd.interpolate(psd, ht_tilde.delta_f)
+                snrs[name] = float(pycbc_sigma(ht_tilde, psd=psd_interp,
+                                               low_frequency_cutoff=minimum_frequency))
+                print(snrs[name])
+            snrs['network'] = float(np.sqrt(sum(v**2 for v in snrs.values())))
+            snr_catalog.append(snrs)
+            logging.getLogger("generate_frames").info(
+                "Injection %d optimal SNR: %s", ii,
+                {k: f"{v:.2f}" for k, v in snrs.items()})
 
         for name, signal in zip(det_names, detector_frame_signal_list):
             strain_dict[name] = inject_signal_into_strain(strain_dict[name], signal,
                                                           sample_times, sampling_frequency)
-    return strain_dict
+    return strain_dict, snr_catalog
 
 
 def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
@@ -471,10 +516,17 @@ def main():
     total_time = int(args.frame_duration)
     sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
     
-    signal_dict = batch_signal_generator(injection_catalog, signal_injection_times,
-                                         args.detector_network, sample_times,
-                                         args.sampling_frequency, args.minimum_frequency,
-                                         reference_frequency)
+    psd = load_psd(args.detector_network, args.sampling_frequency, args.minimum_frequency)
+    signal_dict, snr_catalog = batch_signal_generator(injection_catalog, signal_injection_times,
+                                                      args.detector_network, sample_times,
+                                                      args.sampling_frequency, args.minimum_frequency,
+                                                      reference_frequency, psd=psd)
+    if snr_catalog:
+        det_names = list(snr_catalog[0].keys())
+        snr_array = np.array([[entry[k] for k in det_names] for entry in snr_catalog])
+        header = "  ".join(det_names)
+        np.savetxt(f"{args.outdir}/{args.label}_optimal_snr.txt", snr_array,
+                   header=header, fmt="%.4f")
 
 
     ##############################################
