@@ -13,7 +13,7 @@ import logging
 from tqdm import tqdm
 import scienceplots
 from pycbc.types import TimeSeries
-from pycbc.frame import read_frame
+from pycbc.frame import read_frame, write_frame
 from pycbc.filter.matchedfilter import match
 from glob import glob
 plt.style.use(['science'])
@@ -266,17 +266,18 @@ def main():
         dex_snr = {}
         for det in detectors:
 
-            dex_snr[det], dex_snr['time_stamps'] = process_segments(frame_dictionary[det], model_fine_tuned, scaler, 
+            dex_snr[det] = process_segments(frame_dictionary[det], model_fine_tuned, scaler, 
                                         args.delta_t, args.sampling_frequency, device)
 
         detectors.remove('null_stream')
-        dex_snr['network_snr']  = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
+        dex_snr['network_snr'] = sum(dex_snr[det]**2 for det in detectors) ** 0.5
 
     
 
 
 
         dex_snr['combined_statistic'] = dex_snr['network_snr'] - (dex_snr['null_stream']*np.sqrt(3))
+        
 
     elif args.detector_network=="ET2L":
         dex_snr = {}
@@ -289,7 +290,8 @@ def main():
 
         dex_snr['combined_statistic'] = dex_snr['network_snr'] * dex_snr["mismatch_overlap"]
 
-    np.savez(f"{args.outdir}/{args.label}_dex_snr.npz", **dex_snr)
+    for key, ts in dex_snr.items():
+        write_frame(f"{args.outdir}/{args.label}_dex_snr_{key}.gwf", f"DEX:{key.upper()}", ts)
 
 
 if __name__ == "__main__":
