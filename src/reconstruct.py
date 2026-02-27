@@ -91,7 +91,8 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, de
 
         
 
-    return np.array(snr_values), time_stamps
+    epoch = float(input_frame.start_time) + time_stamps[0]
+    return TimeSeries(np.array(snr_values), delta_t=delta_t, epoch=epoch)
 
 
 def joint_processing(frame_1, frame_2, model, scaler, delta_t, sampling_frequency, device, minimum_frequency, segment_size=8192):
@@ -111,7 +112,11 @@ def joint_processing(frame_1, frame_2, model, scaler, delta_t, sampling_frequenc
         snr_values_2.append(compute_snr(rec_2, seg_2))
         match_values.append(compute_overlap(rec_1, rec_2, sampling_frequency, minimum_frequency))
 
-    return np.array(snr_values_1), np.array(snr_values_2), np.array(match_values), time_stamps
+    epoch = float(frame_1.start_time) + time_stamps[0]
+    snr_ts_1    = TimeSeries(np.array(snr_values_1),   delta_t=delta_t, epoch=epoch)
+    snr_ts_2    = TimeSeries(np.array(snr_values_2),   delta_t=delta_t, epoch=epoch)
+    match_ts    = TimeSeries(np.array(match_values),   delta_t=delta_t, epoch=epoch)
+    return snr_ts_1, snr_ts_2, match_ts
 
 def reconstruct_signal(input_series, model, scaler, device):
     """
@@ -243,7 +248,7 @@ def main():
     model_fine_tuned.to(device)
 
     frame_dictionary = find_frames(args.frame_directory, args.detector_network)
-    detectors = frame_dictionary.keys()
+    detectors = list(frame_dictionary.keys())
 
     for det, path in frame_dictionary.items():
         logger.info("Reading frame: %s -> %s", det, path)
@@ -264,11 +269,9 @@ def main():
             dex_snr[det], dex_snr['time_stamps'] = process_segments(frame_dictionary[det], model_fine_tuned, scaler, 
                                         args.delta_t, args.sampling_frequency, device)
 
-        
+        detectors.remove('null_stream')
         dex_snr['network_snr']  = np.sqrt(sum(dex_snr[det]**2 for det in detectors))
-        null_stream_snr, _ = process_segments(frame_dictionary['null_stream'], model_fine_tuned, scaler, 
-                                                          args.delta_t, args.sampling_frequency, device)
-        dex_snr['null_stream'] = null_stream_snr
+
     
 
 
