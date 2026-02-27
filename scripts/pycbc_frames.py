@@ -466,7 +466,7 @@ def main():
 
 
     ########################################
-    ## Generate all signals ################
+    ######### Generate all signals #########
     total_time = int(args.frame_duration)
     sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
     
@@ -479,6 +479,8 @@ def main():
     ##############################################
     ###### Add signals to noise  ################
     signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
+    null_stream = sum(signal_plus_noise_dict.values())
+    write_frame(f"{args.outdir}/{args.label}_null_stream.gwf", "NULL:STRAIN", null_stream)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
                      sample_times, args.sampling_frequency,
@@ -486,12 +488,6 @@ def main():
 
     if args.plot_timeseries:
         plot_timeseries(noise_dict, signal_dict, sample_times, args.outdir, args.label)
-
-
-
-
-
-
 
 if __name__ == "__main__":
     main()
