@@ -52,7 +52,7 @@ add_detector_on_earth("ETLim", longitude = 5.92056 * np.pi/180, latitude = 50.72
 
 
 
-def add_timeseries(noise_dict, strain_dict):
+def add_timeseries_dictionary(noise_dict, strain_dict):
     """Add signal strain to noise timeseries for each detector.
 
     Parameters
@@ -436,6 +436,10 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
     fig.savefig(f"{outdir}/{label}_strain.pdf")
     plt.close(fig)
 
+def adjust_snr(whitened_timeseries, target_snr):
+    norm = np.sum(whitened_timeseries*whitened_timeseries)**0.5
+    scaled_timeseries = whitened_timeseries * target_snr / norm
+    return scaled_timeseries
 
 def inject_glitch(noise_dict, n_glitches: int, seed: int, sampling_frequency = 4096):
     """
@@ -443,30 +447,33 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, sampling_frequency = 4
 
     """
 
+    generator = gengli.glitch_generator('L1')
+    glitch_bank = generator.get_glitch(n_glitches = n_glitches, seed=seed, srate=sampling_frequency, snr = 1)
+    if n_glitches ==1:
+        glitch_bank = [glitch_bank]
+
+    sample_times = np.array(list(noise_dict.values())[0].sample_times)
+    glitch_injection_time = np.random.choice(sample_times, n_glitches, replace=True)
+
+    det_names = list(noise_dict.keys())
+    glitchy_interferometer = np.random.choice(len(noise_dict), n_glitches, replace=True)
+
+    for ii in range(n_glitches):
+        det_name = det_names[glitchy_interferometer[ii]]
+        noise = noise_dict[det_name]
+        target_snr = np.random.uniform(0, 100, 1)[0]
+        g = adjust_snr(glitch_bank[ii], target_snr)
+        g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
 
 
-    generator = gengli.generator('L1')
-    glitch_bank = generator.get_glitch(N = n_glitches, seed = seed, srate = sampling_frequency)
-    injection_time = #FIXME Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
-
-
-    for ii in n_glitches:
-        # Choose one item from the noise dict randomly
-
-        noise =   # Choose one item from the noise dict randomly
-        
-        g = glitch_bank[ii]
         g_coloured = utils.whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
 
-        t = injection_time[ii]
+        t = glitch_injection_time[ii]
 
-        # In the noise timeseries find the time stamp that corresponds to t. 
+        g_coloured.start_time = t
+        noise.inject(g_coloured)
 
-        # at this value add the g_coloured. Use the timeseries.inject function
-
-    glitchy_timeseries = None
-
-    return glitchy_timeseries
+    return noise_dict, glitch_injection_time, glitchy_interferometer
 
 def main():
 
@@ -488,7 +495,14 @@ def main():
                                  args.frame_duration, args.minimum_frequency, args.seed)
 
    
-    
+    ########################################
+    ###### Inject glitch  ##################
+    if args.inject_glitches == 1:
+        noise_dict, glitch_time, glitch_ifo = inject_glitch(noise_dict, n_glitches=args.n_glitches, seed = 2025)
+        np.savetxt(f"{args.outdir}/{args.label}_glitch_info.dat", np.column_stack([glitch_time, glitch_ifo]), header="glitch_time glitch_ifo", comments="")
+
+
+
     ########################################
     ## Generate all signals ################
     total_time = int(args.frame_duration)
@@ -502,7 +516,7 @@ def main():
 
     ##############################################
     ###### Add signals to noise  ################
-    signal_plus_noise_dict = add_timeseries(noise_dict, signal_dict)
+    signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
                      sample_times, args.sampling_frequency,

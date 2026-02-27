@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from gwpy.timeseries import TimeSeries
+from pycbc.types.timeseries import TimeSeries
+from pycbc.types import FrequencySeries
+
 import sys
 import bilby
 sys.path.append("../ccphen/")
@@ -170,22 +172,39 @@ def scale_snr(time_domain_strain: npt.ArrayLike,
     return time_domain_strain * scaling_factor
 
 
-def whitened_timeseries_to_coloured_timeseries(input_timeseries : np.array, sampling_frequency: float, power_spectral_density: np.ndarray = psd):
+def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sampling_frequency: float, power_spectral_density: PowerSpectralDensity = psd):
     """
     Converts whitened timeseries to coloured time series
 
-    1. Convert input_timeseries to a pycbc timeseries
-    2. Convert pycbc timeseries to pycbc frequencyseries. Call it input_frequencyseries
-    3. Interpolate the power_spectral_density (N, 2) array on the sample frequency of the of input_frequencyseries
-    4. Do np.sqrt(interpolated_psd) * input_frequencyseries * duration * 2. Call it coloured_frequencyseries
-    5. Convert coloured pycbc frequencyseries to the coloured pycbc timeseries
-    6. Return coloured pycbc timeseries
+    1. Convert pycbc timeseries to pycbc frequencyseries. Call it input_frequencyseries
+    2. Interpolate the power_spectral_density (N, 2) array on the sample frequency of the of input_frequencyseries
+    3. Do np.sqrt(interpolated_psd) * input_frequencyseries * duration * 2. Call it coloured_frequencyseries
+    4. Convert coloured pycbc frequencyseries to the coloured pycbc timeseries
+    5. Return coloured pycbc timeseries
 
     """
 
     duration = len(input_timeseries) / sampling_frequency
 
-    coloured_pycbc_timeseries = None
+    # Step 1: Convert to frequency series
+    input_frequencyseries = input_timeseries.to_frequencyseries()
+
+    # Step 2: Interpolate PSD at the frequencyseries sample frequencies
+    freqs = np.array(input_frequencyseries.sample_frequencies)
+    interpolated_psd = psd.get_power_spectral_density_array(freqs)
+    interpolated_psd = np.nan_to_num(interpolated_psd, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Step 3: Colour the frequency series
+    coloured_array = np.sqrt(interpolated_psd) * np.array(input_frequencyseries) * duration * 2
+    coloured_frequencyseries = FrequencySeries(
+        coloured_array,
+        delta_f=input_frequencyseries.delta_f,
+        epoch=input_frequencyseries.epoch,
+    )
+
+    # Step 4: Convert back to time series
+    coloured_pycbc_timeseries = coloured_frequencyseries.to_timeseries()
+
     return coloured_pycbc_timeseries
 
 
