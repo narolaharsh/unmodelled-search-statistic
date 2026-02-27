@@ -238,7 +238,7 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: st
         g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
 
 
-        g_coloured = utils.whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
+        g_coloured = whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
 
         t = glitch_injection_time[ii]
         plot_glitches = False
