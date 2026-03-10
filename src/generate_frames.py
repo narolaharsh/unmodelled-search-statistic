@@ -24,6 +24,15 @@ import utils
 from bilby.gw import conversion
 from tqdm import tqdm
 
+logger = logging.getLogger("generate_frames")
+
+
+def setup_logger(outdir, label):
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(f"{outdir}/{label}_generate_frames.log")
+    fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(fh)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate whitened frame files in npz format for ET detector with gaussian noise and optional signals/glitches.")
@@ -424,9 +433,8 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
                 #print(snrs[name])
             snrs['network'] = float(np.sqrt(sum(v**2 for v in snrs.values())))
             snr_catalog.append(snrs)
-            logging.getLogger("generate_frames").info(
-                "Injection %d optimal SNR: %s", ii,
-                {k: f"{v:.2f}" for k, v in snrs.items()})
+            logger.info("Injection %d optimal SNR: %s", ii,
+                        {k: f"{v:.2f}" for k, v in snrs.items()})
 
         for name, signal in zip(det_names, detector_frame_signal_list):
             strain_dict[name] = inject_signal_into_strain(strain_dict[name], signal,
@@ -485,10 +493,9 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
 def main():
 
     args = parse_args()
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
+    setup_logger(args.outdir, args.label)
 
     np.random.seed(args.seed)
 

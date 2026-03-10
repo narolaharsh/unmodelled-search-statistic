@@ -19,11 +19,11 @@ from glob import glob
 plt.style.use(['science'])
 
 logger = logging.getLogger("reconstruct")
-
+DEBUG = False
 
 def setup_logger(outdir, label):
     logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(f"{outdir}/{label}.log")
+    fh = logging.FileHandler(f"{outdir}/{label}_reconstruct.log")
     fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
@@ -71,19 +71,23 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, de
     Returns:
         snr_values: List of SNR values for each segment
     """
-    whitened_frame = np.array(input_frame.whiten(segment_duration = 8, max_filter_duration = 2, low_frequency_cutoff = minimum_frequency)) / np.sqrt(sampling_frequency)
-
+    whitened_frame = np.array(input_frame.whiten(segment_duration = 16, max_filter_duration = 2, low_frequency_cutoff = minimum_frequency)) 
+    whitened_frame /= np.std(whitened_frame) # This is to make sure the whitned strain has a standard deviation of 1 unit.
 
     sample_times = np.arange(len(whitened_frame)) / sampling_frequency
-    plot = True
-    if plot:
+    
+    if DEBUG:
+        x = np.arange(-5, 5, 0.1)
+        gaussian = np.exp(-1 * np.power(x, 2)/2) / np.sqrt(2*np.pi)
+
         fig, ax = plt.subplots()
-        ax.plot(sample_times, whitened_frame, lw=0.5)
-        ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Whitened strain")
-        ax.set_title(f"{det} whitened frame")
+        ax.hist(whitened_frame, density = 1, histtype='step', bins = 40)
+        ax.plot(x, gaussian, color = 'black')
+        #ax.set_xlabel("Time [s]")
+        #ax.set_ylabel("Whitened strain")
+        #ax.set_title(f"{det} whitened frame")
         fig.savefig(f"{outdir}/{label}_{det}_whitened.pdf")
-        plt.close(fig)
+        #plt.close(fig)
 
     n_samples = len(whitened_frame)
 
