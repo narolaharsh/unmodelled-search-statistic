@@ -1,0 +1,23 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: check-merge-conflict # prevent committing files with merge conflicts
+-   repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - Flake8-pyproject
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+    -   id: codespell
+        args: [--ignore-words=.dictionary.txt]
+        additional_dependencies:
+        - tomli
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.14.0
+  hooks:
+  - id: pretty-format-toml
+    args: [--autofix]

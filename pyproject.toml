@@ -1,0 +1,11 @@
+[tool.flake8]
+exclude = [
+  ".git",
+  "docs",
+  "build",
+  "dist",
+  "test",
+  "*__init__.py"
+]
+ignore = ["E129", "W503", "W504", "E203", "E402"]
+max-line-length = 120
