@@ -4,14 +4,12 @@ import torch
 sys.path.append('../../deepextractor/')
 from models.models import UNET2D # DeepExtractor is based on the U-Net architecture
 import pickle
-import sklearn
 import matplotlib.pyplot as plt
 import bilby
 import argparse
 import os
 import logging
 from tqdm import tqdm
-import scienceplots
 from pycbc.types import TimeSeries
 from pycbc.frame import read_frame, write_frame
 from pycbc.filter.matchedfilter import match
@@ -74,7 +72,7 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency, de
     whitened_frame = np.array(input_frame.whiten(segment_duration = 16, max_filter_duration = 2, low_frequency_cutoff = minimum_frequency)) 
     whitened_frame /= np.std(whitened_frame) # This is to make sure the whitned strain has a standard deviation of 1 unit.
 
-    sample_times = np.arange(len(whitened_frame)) / sampling_frequency
+    np.arange(len(whitened_frame)) / sampling_frequency
     
     if DEBUG:
         x = np.arange(-5, 5, 0.1)

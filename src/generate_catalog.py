@@ -1,6 +1,5 @@
 import numpy as np
 import bilby
-import matplotlib.pyplot as plt
 import argparse
 import os
 import json

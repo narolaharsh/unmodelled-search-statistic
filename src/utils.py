@@ -1,15 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pycbc.types.timeseries import TimeSeries
-from pycbc.types import FrequencySeries
 import gengli
 import sys
 import bilby
 sys.path.append("../ccphen/")
 import ccphen
-from bilby.gw.detector import PowerSpectralDensity
-import numpy.typing as npt
-from scipy.signal.windows import tukey
 from pycbc.filter import sigma as pycbc_sigma
 import pycbc
 import importlib.util
@@ -27,86 +23,6 @@ DEBUG=False
 
 
 
-def generate_supernova_signal(
-    target_snr: float,
-    sampling_frequency: int = 4096,
-    ra: float = 0.0,
-    dec: float = 0.0,
-    duration: float = 2.0,
-    luminosity_distance: float = 1e3,
-    seed_array: tuple = (7688, 763, 1263, 973, 9872),
-) -> dict[str, np.ndarray]:
-    """
-    Generate a phenomenological core-collapse supernova gravitational wave signal.
-
-    Uses the ccphen library to create a simulated supernova waveform with
-    specified sky location and SNR, returning the frequency-domain strain
-    for both polarizations.
-
-    Parameters
-    ----------
-    target_snr : float
-        The desired signal-to-noise ratio for the generated signal.
-    sampling_frequency : int, optional
-        The sampling frequency in Hz. Default is 4096.
-    ra : float, optional
-        Right ascension of the source in radians. Default is 0.0.
-    dec : float, optional
-        Declination of the source in radians. Default is 0.0.
-    duration : float, optional
-        Duration of the signal segment in seconds. Default is 2.0.
-    luminosity_distance : float, optional
-        Distance to the source in parsecs. Default is 1e3 (1 kpc).
-    seed_array : tuple, optional
-        Random seeds for waveform generation reproducibility.
-
-    Returns
-    -------
-    dict[str, np.ndarray]
-        Dictionary containing:
-        - 'plus': Frequency-domain plus polarization strain
-        - 'cross': Frequency-domain cross polarization strain
-    """
-    n_samples = int(sampling_frequency * duration)
-
-    # Source intrinsic parameters
-    parameters = ccphen.param()
-    parameters.Tini = 0.2
-    parameters.Tend = 1.2
-    parameters.Q = 10
-    parameters.npw = 3
-    parameters.time_pw = [0.0, 1.0, 1.5]
-    parameters.f_pw = [100, 2e3, 2.5e3]
-    parameters.h_pw = [1.0, 1.0, 1.0]
-
-    log_hrms_mean = -23.0
-    log_hrms_sigma = 0.4
-
-    waveform = ccphen.hphen_pol(
-        sampling_frequency,
-        n_samples,
-        parameters,
-        seed_array,
-        luminosity_distance,
-        ra,
-        dec,
-        log_hrms_mean=log_hrms_mean,
-        log_hrms_sigma=log_hrms_sigma,
-    )
-
-    hplus = np.array(np.real(waveform.h))
-    hcross = np.array(np.imag(waveform.h))
-
-    hplus = scale_snr_with_psd(hplus, target_snr=target_snr, sample_rate=sampling_frequency)
-    hcross = scale_snr_with_psd(hcross, target_snr=target_snr, sample_rate=sampling_frequency)
-
-    fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
-    fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
-
-
-
-
-    return {'plus': fft_hplus, 'cross': fft_hcross}
 
 
 def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sampling_frequency: float, power_spectral_density):
@@ -187,3 +103,89 @@ def inject_glitch(noise_dict, n_glitches: int, minimum_frequency:float, power_sp
 
 
     return noise_dict, glitch_injection_time, glitchy_interferometer, glitch_snrs
+
+
+# Under construction 
+
+'''
+def generate_supernova_signal(
+    target_snr: float,
+    sampling_frequency: int = 4096,
+    ra: float = 0.0,
+    dec: float = 0.0,
+    duration: float = 2.0,
+    luminosity_distance: float = 1e3,
+    seed_array: tuple = (7688, 763, 1263, 973, 9872),
+) -> dict[str, np.ndarray]:
+    """
+    Generate a phenomenological core-collapse supernova gravitational wave signal.
+
+    Uses the ccphen library to create a simulated supernova waveform with
+    specified sky location and SNR, returning the frequency-domain strain
+    for both polarizations.
+
+    Parameters
+    ----------
+    target_snr : float
+        The desired signal-to-noise ratio for the generated signal.
+    sampling_frequency : int, optional
+        The sampling frequency in Hz. Default is 4096.
+    ra : float, optional
+        Right ascension of the source in radians. Default is 0.0.
+    dec : float, optional
+        Declination of the source in radians. Default is 0.0.
+    duration : float, optional
+        Duration of the signal segment in seconds. Default is 2.0.
+    luminosity_distance : float, optional
+        Distance to the source in parsecs. Default is 1e3 (1 kpc).
+    seed_array : tuple, optional
+        Random seeds for waveform generation reproducibility.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Dictionary containing:
+        - 'plus': Frequency-domain plus polarization strain
+        - 'cross': Frequency-domain cross polarization strain
+    """
+    n_samples = int(sampling_frequency * duration)
+
+    # Source intrinsic parameters
+    parameters = ccphen.param()
+    parameters.Tini = 0.2
+    parameters.Tend = 1.2
+    parameters.Q = 10
+    parameters.npw = 3
+    parameters.time_pw = [0.0, 1.0, 1.5]
+    parameters.f_pw = [100, 2e3, 2.5e3]
+    parameters.h_pw = [1.0, 1.0, 1.0]
+
+    log_hrms_mean = -23.0
+    log_hrms_sigma = 0.4
+
+    waveform = ccphen.hphen_pol(
+        sampling_frequency,
+        n_samples,
+        parameters,
+        seed_array,
+        luminosity_distance,
+        ra,
+        dec,
+        log_hrms_mean=log_hrms_mean,
+        log_hrms_sigma=log_hrms_sigma,
+    )
+
+    hplus = np.array(np.real(waveform.h))
+    hcross = np.array(np.imag(waveform.h))
+
+    hplus = scale_snr_with_psd(hplus, target_snr=target_snr, sample_rate=sampling_frequency)
+    hcross = scale_snr_with_psd(hcross, target_snr=target_snr, sample_rate=sampling_frequency)
+
+    fft_hplus, _ = bilby.core.utils.nfft(hplus, sampling_frequency)
+    fft_hcross, _ = bilby.core.utils.nfft(hcross, sampling_frequency)
+
+
+
+
+    return {'plus': fft_hplus, 'cross': fft_hcross}
+'''

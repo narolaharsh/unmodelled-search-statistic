@@ -5,7 +5,6 @@ Script to create ET frames using PyCBC
 import numpy as np
 import matplotlib.pyplot as plt
 import pycbc
-import gengli
 import os
 from contextlib import chdir
 import argparse

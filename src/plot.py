@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os
-import scienceplots
 from glob import glob
 from pycbc.frame import read_frame
 plt.style.use(['science'])
