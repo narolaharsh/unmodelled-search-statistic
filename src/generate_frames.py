@@ -421,7 +421,7 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
                 psd_interp = pycbc.psd.interpolate(psd, ht_tilde.delta_f)
                 snrs[name] = float(pycbc_sigma(ht_tilde, psd=psd_interp,
                                                low_frequency_cutoff=minimum_frequency))
-                print(snrs[name])
+                #print(snrs[name])
             snrs['network'] = float(np.sqrt(sum(v**2 for v in snrs.values())))
             snr_catalog.append(snrs)
             logging.getLogger("generate_frames").info(
@@ -485,6 +485,8 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
 def main():
 
     args = parse_args()
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not os.path.isdir(args.outdir):
         os.mkdir(args.outdir)
 
