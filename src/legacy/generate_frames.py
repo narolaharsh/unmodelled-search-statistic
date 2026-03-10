@@ -134,6 +134,7 @@ def inject_glitches(args, ifos, generator, glitches_injection_times, glitchy_ifo
 
     for ii in range(len(glitches_injection_times)):
         target_snr = np.random.uniform(7, 100, 1)
+
         ifo_idx = glitchy_ifo[ii]
         glitchy_strains[ifo_idx] = utils.inject_glitch(generator, glitchy_strains[ifo_idx],
                                                         args.sampling_frequency, glitches_injection_times[ii],

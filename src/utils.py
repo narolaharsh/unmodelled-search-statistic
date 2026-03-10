@@ -10,6 +10,8 @@ import ccphen
 from bilby.gw.detector import PowerSpectralDensity
 import numpy.typing as npt
 from scipy.signal.windows import tukey
+from pycbc.filter import sigma as pycbc_sigma
+import pycbc
 import importlib.util
 
 spec = importlib.util.spec_from_file_location(
@@ -20,9 +22,9 @@ utils_3g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(utils_3g)
 
 
+DEBUG=False
 
 
-psd = PowerSpectralDensity.from_power_spectral_density_file('ET_D_psd.txt')
 
 
 def generate_supernova_signal(
@@ -107,49 +109,7 @@ def generate_supernova_signal(
     return {'plus': fft_hplus, 'cross': fft_hcross}
 
 
-
-def scale_snr_with_psd(time_domain_strain: npt.ArrayLike,
-              target_snr: float,
-              sample_rate: int = 4096,
-              power_spectral_density: PowerSpectralDensity = None) -> np.ndarray:
-    """
-    Scale a time-domain gravitational wave strain to achieve a target SNR.
-
-    Computes the current SNR by whitening the input strain using the provided
-    power spectral density, then scales the original strain to match the
-    desired SNR.
-
-    Parameters
-    ----------
-    time_domain_strain : array_like
-        The input time-domain strain signal to be scaled.
-    target_snr : float
-        The desired signal-to-noise ratio for the output strain.
-    sample_rate : int, optional
-        The sampling frequency in Hz. Default is 4096.
-    power_spectral_density : PowerSpectralDensity, optional
-        The PSD used for whitening. If None, uses the module-level ET-D PSD.
-
-    Returns
-    -------
-    np.ndarray
-        The scaled time-domain strain with the target SNR.
-    """
-    if power_spectral_density is None:
-        power_spectral_density = psd
-
-    ts = TimeSeries(time_domain_strain, sample_rate=sample_rate)
-    whitened_strain = utils_3g.generate_whitened_timeseries_from_coloured_timeseries(
-        ts, power_spectral_density=power_spectral_density
-    )
-
-    current_snr = np.linalg.norm(whitened_strain)
-    scaling_factor = target_snr / current_snr
-
-    return time_domain_strain * scaling_factor
-
-
-def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sampling_frequency: float, power_spectral_density: PowerSpectralDensity = psd):
+def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sampling_frequency: float, power_spectral_density):
     """
     Converts whitened timeseries to coloured time series
 
@@ -161,36 +121,31 @@ def whitened_timeseries_to_coloured_timeseries(input_timeseries : TimeSeries, sa
 
     """
 
-    duration = len(input_timeseries) / sampling_frequency
 
     # Step 1: Convert to frequency series
     input_frequencyseries = input_timeseries.to_frequencyseries()
 
     # Step 2: Interpolate PSD at the frequencyseries sample frequencies
-    freqs = np.array(input_frequencyseries.sample_frequencies)
-    interpolated_psd = psd.get_power_spectral_density_array(freqs)
-    interpolated_psd = np.nan_to_num(interpolated_psd, nan=0.0, posinf=0.0, neginf=0.0)
-
-    # Step 3: Colour the frequency series
-    coloured_array = np.sqrt(interpolated_psd) * np.array(input_frequencyseries) #* duration /2
-    coloured_frequencyseries = FrequencySeries(
-        coloured_array,
-        delta_f=input_frequencyseries.delta_f,
-        epoch=input_frequencyseries.epoch,
-    )
-
-    # Step 4: Convert back to time series
+    interpolated_psd = pycbc.psd.interpolate(power_spectral_density, input_timeseries.delta_f)
+    interpolated_psd.data[~np.isfinite(interpolated_psd.data)] = 0.0
+    interpolated_asd = interpolated_psd ** 0.5
+    coloured_frequencyseries = (interpolated_asd) * input_frequencyseries #* duration /2
     coloured_pycbc_timeseries = coloured_frequencyseries.to_timeseries()
 
     return coloured_pycbc_timeseries
 
 
-def adjust_snr(whitened_timeseries, target_snr):
-    norm = np.sum(whitened_timeseries*whitened_timeseries)**0.5
-    scaled_timeseries = whitened_timeseries * target_snr / norm
-    return scaled_timeseries
+def adjust_snr(coloured_time_series, target_snr, minimum_frequency, power_spectral_density):
 
-def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: str, sampling_frequency = 4096):
+    psd_interp = pycbc.psd.interpolate(power_spectral_density, coloured_time_series.delta_f)
+    current_sigma_square = float(pycbc_sigma(coloured_time_series, psd=psd_interp,
+                                               low_frequency_cutoff=minimum_frequency))
+    current_snr = current_sigma_square ** 0.5
+    
+    coloured_time_series = coloured_time_series * target_snr / current_snr
+    return coloured_time_series
+
+def inject_glitch(noise_dict, n_glitches: int, minimum_frequency:float, power_spectral_density, seed: int, outdir: str, label: str, sampling_frequency = 4096):
     """
     1. Randmoly choose n_glitches values of times from the sample times of an item in the noise dict. 
 
@@ -203,23 +158,21 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: st
 
     sample_times = np.array(list(noise_dict.values())[0].sample_times)
     glitch_injection_time = np.random.choice(sample_times, n_glitches, replace=True)
-
+    glitch_snrs = np.random.uniform(0, 200, n_glitches)
     det_names = list(noise_dict.keys())
     glitchy_interferometer = np.random.choice(len(noise_dict), n_glitches, replace=True)
 
     for ii in range(n_glitches):
         det_name = det_names[glitchy_interferometer[ii]]
+        g = TimeSeries(glitch_bank[ii], delta_t = 1/sampling_frequency, epoch = 0.0)
 
-        target_snr = 20000.#np.random.uniform(0, 100, 1)[0]
-        g = adjust_snr(glitch_bank[ii], target_snr)
-        g = TimeSeries(g, delta_t = 1/sampling_frequency, epoch = 0.0)
+        g_coloured = whitened_timeseries_to_coloured_timeseries(g, power_spectral_density=power_spectral_density, sampling_frequency=sampling_frequency)
+        g_coloured = adjust_snr(g_coloured, glitch_snrs[ii], minimum_frequency, power_spectral_density)
 
-
-        g_coloured = whitened_timeseries_to_coloured_timeseries(g, sampling_frequency=sampling_frequency)
 
         t = glitch_injection_time[ii]
-        plot_glitches = True
-        if plot_glitches:
+
+        if DEBUG:
             fig, ax = plt.subplots()
             ax.plot(g_coloured.sample_times, g_coloured)
             ax.set_xlabel("Time [s]")
@@ -233,4 +186,4 @@ def inject_glitch(noise_dict, n_glitches: int, seed: int, outdir: str, label: st
         noise_dict[det_name] = noise_dict[det_name].inject(g_coloured)
 
 
-    return noise_dict, glitch_injection_time, glitchy_interferometer
+    return noise_dict, glitch_injection_time, glitchy_interferometer, glitch_snrs

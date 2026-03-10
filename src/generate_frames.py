@@ -504,6 +504,9 @@ def main():
 
     signal_injection_times = np.random.uniform(0, args.frame_duration, args.n_signals)
     np.savetxt(f"{args.outdir}/{args.label}_injection_times.txt", signal_injection_times, fmt="%.6f")
+
+    psd = load_psd(args.detector_network, args.sampling_frequency, args.minimum_frequency)
+
     
     ########################################
     ###### Generate coloured noise ########
@@ -514,9 +517,11 @@ def main():
     ########################################
     ###### Inject glitch  ##################
     if args.n_glitches != 0:
-        print("Injecting glitches...")
-        noise_dict, glitch_time, glitch_ifo = utils.inject_glitch(noise_dict, n_glitches=args.n_glitches, seed=args.seed, outdir=args.outdir, label=args.label)
-        np.savetxt(f"{args.outdir}/{args.label}_glitch_info.dat", np.column_stack([glitch_time, glitch_ifo]), header="glitch_time glitch_ifo", comments="")
+        logger.info("Injecting glitches...")
+        noise_dict, glitch_time, glitch_ifo, glitch_snrs = utils.inject_glitch(noise_dict, n_glitches=args.n_glitches, minimum_frequency = args.minimum_frequency, power_spectral_density=psd, seed=args.seed, outdir=args.outdir, label=args.label)
+        for t, ifo, snr in zip(glitch_time, glitch_ifo, glitch_snrs):
+            logger.info("Glitch: time=%.2f, ifo=%d, snr=%.2f", t, ifo, snr)
+
 
 
 
@@ -525,7 +530,6 @@ def main():
     total_time = int(args.frame_duration)
     sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
     
-    psd = load_psd(args.detector_network, args.sampling_frequency, args.minimum_frequency)
     signal_dict, snr_catalog = batch_signal_generator(injection_catalog, signal_injection_times,
                                                       args.detector_network, sample_times,
                                                       args.sampling_frequency, args.minimum_frequency,
