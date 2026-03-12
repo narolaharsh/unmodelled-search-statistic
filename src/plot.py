@@ -4,9 +4,6 @@ import argparse
 import os
 from glob import glob
 from pycbc.frame import read_frame
-import scienceplots
-scienceplots
-plt.style.use(['science'])
 
 
 def parse_args():
