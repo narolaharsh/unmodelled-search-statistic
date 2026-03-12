@@ -449,13 +449,13 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
                 # print(snrs[name])
             snrs['network'] = float(np.sqrt(sum(v**2 for v in snrs.values())))
             snr_catalog.append(snrs)
-            logger.info("Injection %d optimal SNR: %s", ii,
+            logger.info("Signal %d optimal SNR: %s", ii,
                         {k: f"{v:.2f}" for k, v in snrs.items()})
 
         for name, signal in zip(det_names, detector_frame_signal_list):
             strain_dict[name] = inject_signal_into_strain(strain_dict[name], signal,
                                                           sample_times, sampling_frequency)
-    return strain_dict, snr_catalog
+    return strain_dict
 
 
 def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
@@ -521,8 +521,6 @@ def main():
 
     signal_injection_times = np.random.uniform(
         0, args.frame_duration, args.n_signals)
-    logging.getLogger("generate_frames").info(
-        "Signal injection times: %s", [f"{t:.6f}" for t in signal_injection_times])
 
     psd = load_psd(args.detector_network,
                    args.sampling_frequency, args.minimum_frequency)
@@ -541,20 +539,23 @@ def main():
             logger.info("Glitch: time=%.2f, ifo=%d, snr=%.2f", t, ifo, snr)
 
     # Generate all signals
+    logger.info("Injecting signals...")
+    logger.info(
+        "Signal injection times: %s", [f"{t:.6f}" for t in signal_injection_times])
     total_time = int(args.frame_duration)
     sample_times = np.linspace(
         start=0, stop=total_time, num=total_time * args.sampling_frequency, endpoint=True)
 
-    signal_dict, snr_catalog = batch_signal_generator(injection_catalog, signal_injection_times,
-                                                      args.detector_network, sample_times,
-                                                      args.sampling_frequency, args.minimum_frequency,
-                                                      reference_frequency, psd=psd)
-    if snr_catalog:
-        det_names = list(snr_catalog[0].keys())
-        for ii, entry in enumerate(snr_catalog):
-            logger.info(
-                "Injection %d optimal SNR: %s", ii,
-                {k: f"{entry[k]:.4f}" for k in det_names})
+    signal_dict = batch_signal_generator(injection_catalog, signal_injection_times,
+                                         args.detector_network, sample_times,
+                                         args.sampling_frequency, args.minimum_frequency,
+                                         reference_frequency, psd=psd)
+    # if snr_catalog:
+    #    det_names = list(snr_catalog[0].keys())
+    #    for ii, entry in enumerate(snr_catalog):
+    #        logger.info(
+    #            "Injection %d optimal SNR: %s", ii,
+    #            {k: f"{entry[k]:.4f}" for k in det_names})
 
     # Add signals to noise
     if args.n_signals != 0:

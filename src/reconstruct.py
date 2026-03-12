@@ -6,7 +6,6 @@ from tqdm import tqdm
 import logging
 import os
 import argparse
-import bilby
 import pickle
 # DeepExtractor is based on the U-Net architecture
 from models.models import UNET2D
@@ -48,18 +47,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def compute_snr(reconstruced_signal, data, duration=2, sampling_frequency=4096):
-    do_fft = False
-    if do_fft:
-        signal_fft, _ = bilby.core.utils.nfft(
-            reconstruced_signal, sampling_frequency)
-        data_fft, _ = bilby.core.utils.nfft(data, sampling_frequency)
-
-        sigma_squared = 4 / duration * \
-            np.real(np.sum(data_fft * np.conj(signal_fft)))
-
-    else:
-        sigma_squared = np.sum(reconstruced_signal * data)
+def compute_snr(reconstruced_signal, data):
+    sigma_squared = np.sum(reconstruced_signal * data)
     return np.sqrt(abs(sigma_squared))
 
 

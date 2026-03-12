@@ -7,7 +7,7 @@ python ../src/generate_frames.py --outdir frames --label ${label} \
 --minimum-frequency 20 \
 --seed 12 \
 --n-glitches 5  \
---n-signals 1 \
+--n-signals 2 \
 --frame-duration 128 \
 --sampling-frequency 4096 
 
