@@ -1,0 +1,32 @@
+name: quick_search
+
+on:
+  push:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pycbc gengli bilby
+
+      - name: Download model checkpoint
+        run: |
+          mkdir -p weights/checkpoints_1024/UNET2D_glitch_target_checkpoints
+          gh release download v1.0-models \
+            --pattern "checkpoint_best_bilby_noise_transfer_learn.pth.tar" \
+            --dir weights/checkpoints_1024/UNET2D_glitch_target_checkpoints/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run quick_search pipeline
+        working-directory: analysis
+        run: bash quick_search.sh

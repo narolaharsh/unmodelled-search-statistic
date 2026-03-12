@@ -6,15 +6,7 @@ import sys
 sys.path.append("../ccphen/")
 from pycbc.filter import sigma as pycbc_sigma
 import pycbc
-import importlib.util
-
-spec = importlib.util.spec_from_file_location(
-    "utils_3g",  # custom module name
-    "../../../3G_detector_data_analysis/utils/utils.py"
-)
-utils_3g = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(utils_3g)
-
+# import importlib.util
 
 DEBUG = False
 
@@ -38,7 +30,7 @@ def whitened_timeseries_to_coloured_timeseries(
     interpolated_psd = pycbc.psd.interpolate(power_spectral_density, input_timeseries.delta_f)
     interpolated_psd.data[~np.isfinite(interpolated_psd.data)] = 0.0
     interpolated_asd = interpolated_psd ** 0.5
-    coloured_frequencyseries = (interpolated_asd) * input_frequencyseries  # * duration /2
+    coloured_frequencyseries = (interpolated_asd) * input_frequencyseries
     coloured_pycbc_timeseries = coloured_frequencyseries.to_timeseries()
 
     return coloured_pycbc_timeseries
