@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pycbc.types.timeseries import TimeSeries
 import gengli
-import sys
-sys.path.append("../ccphen/")
+# sys.path.append("../ccphen/")
 from pycbc.filter import sigma as pycbc_sigma
 import pycbc
 # import importlib.util
