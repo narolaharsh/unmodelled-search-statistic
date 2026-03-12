@@ -11,16 +11,20 @@ DEBUG = False
 
 
 def whitened_timeseries_to_coloured_timeseries(
-        input_timeseries: TimeSeries, sampling_frequency: float, power_spectral_density):
+        input_timeseries: TimeSeries, power_spectral_density):
     """
-    Converts whitened timeseries to coloured time series
+    Convert a whitened pycbc TimeSeries to a coloured pycbc TimeSeries.
 
-    1. Convert pycbc timeseries to pycbc frequencyseries. Call it input_frequencyseries
-    2. Interpolate the power_spectral_density (N, 2) array on the sample frequency of the of input_frequencyseries
-    3. Do np.sqrt(interpolated_psd) * input_frequencyseries * duration * 2. Call it coloured_frequencyseries
-    4. Convert coloured pycbc frequencyseries to the coloured pycbc timeseries
-    5. Return coloured pycbc timeseries
+    Parameters
+    ==========
+    input_timeseries: pycbc.types.TimeSeries
+        Whitened pycbc TimeSeries.
+    power_spectral_density: pycbc.types.FrequencySeries
+        PSD used for colouring.
 
+    Returns
+    =======
+    pycbc.types.TimeSeries: Coloured pycbc TimeSeries.
     """
     # Step 1: Convert to frequency series
     input_frequencyseries = input_timeseries.to_frequencyseries()
@@ -36,7 +40,24 @@ def whitened_timeseries_to_coloured_timeseries(
 
 
 def adjust_snr(coloured_time_series, target_snr, minimum_frequency, power_spectral_density):
+    """
+    Rescale a coloured TimeSeries to a target SNR.
 
+    Parameters
+    ==========
+    coloured_time_series: pycbc.types.TimeSeries
+        Coloured pycbc TimeSeries to rescale.
+    target_snr: float
+        Desired SNR after rescaling.
+    minimum_frequency: float
+        Lower frequency cutoff in Hz used for the SNR calculation.
+    power_spectral_density: pycbc.types.FrequencySeries
+        PSD used to compute the current SNR.
+
+    Returns
+    =======
+    pycbc.types.TimeSeries: Rescaled coloured TimeSeries with SNR equal to target_snr.
+    """
     psd_interp = pycbc.psd.interpolate(power_spectral_density, coloured_time_series.delta_f)
     current_sigma_square = float(pycbc_sigma(coloured_time_series, psd=psd_interp,
                                              low_frequency_cutoff=minimum_frequency))
@@ -50,8 +71,38 @@ def inject_glitch(noise_dict, n_glitches: int, minimum_frequency: float,
                   power_spectral_density, seed: int, outdir: str, label: str,
                   sampling_frequency=4096):
     """
-    1. Randomly choose n_glitches values of times from the sample times of an item in the noise dict.
+    Inject simulated glitches into a dictionary of noise TimeSeries.
 
+    Glitch waveforms are drawn from the gengli glitch bank, coloured with the
+    provided PSD, rescaled to a random SNR in [0, 200], and injected at a
+    randomly chosen time into a randomly chosen detector.
+
+    Parameters
+    ==========
+    noise_dict: dict
+        Dictionary mapping detector names to pycbc TimeSeries of noise data.
+    n_glitches: int
+        Number of glitches to inject.
+    minimum_frequency: float
+        Lower frequency cutoff in Hz used for SNR calculation.
+    power_spectral_density: pycbc.types.FrequencySeries
+        PSD used to colour the whitened glitch waveforms.
+    seed: int
+        Random seed for glitch waveform generation.
+    outdir: str
+        Output directory (used for debug plots).
+    label: str
+        Label string (used for debug plot filenames).
+    sampling_frequency: int, optional
+        Sampling frequency in Hz. Default is 4096.
+
+    Returns
+    =======
+    tuple: (noise_dict, glitch_injection_time, glitchy_interferometer, glitch_snrs)
+        noise_dict: dict, updated with injected glitches.
+        glitch_injection_time: np.ndarray, GPS times of each injection.
+        glitchy_interferometer: np.ndarray, indices of detectors each glitch was injected into.
+        glitch_snrs: np.ndarray, SNR of each injected glitch.
     """
     generator = gengli.glitch_generator('L1')
     glitch_bank = generator.get_glitch(n_glitches=n_glitches, seed=seed, srate=sampling_frequency, snr=1)
@@ -69,7 +120,7 @@ def inject_glitch(noise_dict, n_glitches: int, minimum_frequency: float,
         g = TimeSeries(glitch_bank[ii], delta_t=1 / sampling_frequency, epoch=0.0)
 
         g_coloured = whitened_timeseries_to_coloured_timeseries(
-            g, power_spectral_density=power_spectral_density, sampling_frequency=sampling_frequency)
+            g, power_spectral_density=power_spectral_density)
         g_coloured = adjust_snr(g_coloured, glitch_snrs[ii], minimum_frequency, power_spectral_density)
 
         t = glitch_injection_time[ii]

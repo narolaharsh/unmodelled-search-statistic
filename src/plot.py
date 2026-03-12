@@ -60,27 +60,29 @@ def make_plots(args, dex_snr):
         zz.legend(fancybox=True, frameon=True, fontsize=8)
     fig.savefig(f"{args.outdir}/{args.label}_snr_timeseries.pdf")
 
-    if 'null_stream' in dex_snr:
-        network_snr = np.array(dex_snr['network_snr'])
-        null_stream = np.array(dex_snr['null_stream'])
+    plot_foreground_background_histogram = False
+    if plot_foreground_background_histogram:
+        if 'null_stream' in dex_snr:
+            network_snr = np.array(dex_snr['network_snr'])
+            null_stream = np.array(dex_snr['null_stream'])
 
-        fig, ax = plt.subplots(1, 1)
-        ax.scatter(network_snr, null_stream, s=5)
-        ax.scatter(network_snr, network_snr - null_stream, s=5)
-        ax.axvline(x=8, color='black', ls='--')
-        ax.set_xlim(0, 50)
-        ax.set_ylim(0, 50)
-        ax.grid()
-        ax.set_aspect("equal")
-        ax.set_xlabel("Network SNR")
-        ax.set_ylabel("Null stream SNR")
-        fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
+            fig, ax = plt.subplots(1, 1)
+            ax.scatter(network_snr, null_stream, s=5)
+            ax.scatter(network_snr, network_snr - null_stream, s=5)
+            ax.axvline(x=8, color='black', ls='--')
+            ax.set_xlim(0, 50)
+            ax.set_ylim(0, 50)
+            ax.grid()
+            ax.set_aspect("equal")
+            ax.set_xlabel("Network SNR")
+            ax.set_ylabel("Null stream SNR")
+            fig.savefig(f"{args.outdir}/{args.label}_snr_foreground_scatter.pdf")
 
-        fig, ax = plt.subplots(1, 1)
-        ax.hist(null_stream, histtype='step', cumulative=-1, density=1)
-        ax.set_yscale('log')
-        ax.grid()
-        fig.savefig(f"{args.outdir}/{args.label}_background_histogram.pdf")
+            fig, ax = plt.subplots(1, 1)
+            ax.hist(null_stream, histtype='step', cumulative=-1, density=1)
+            ax.set_yscale('log')
+            ax.grid()
+            fig.savefig(f"{args.outdir}/{args.label}_background_histogram.pdf")
 
 
 def main():
