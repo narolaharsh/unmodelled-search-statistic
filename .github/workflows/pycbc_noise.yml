@@ -16,7 +16,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pycbc gengli bilby
+        run: pip install pycbc bilby
 
       - name: Download model checkpoint
         run: |
@@ -29,4 +29,4 @@ jobs:
 
       - name: Run quick_search pipeline
         working-directory: analysis
-        run: bash quick_search.sh
+        run: bash search.sh
