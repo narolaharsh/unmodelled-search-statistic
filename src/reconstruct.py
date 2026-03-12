@@ -53,19 +53,38 @@ def compute_snr(reconstruced_signal, data):
 
 
 def process_segments(input_frame, model, scaler, delta_t, sampling_frequency,
-                     device, minimum_frequency, outdir, label, det, segment_size=8192):
+                     device, minimum_frequency, outdir, label, detector_name, segment_size=8192):
     """
-    Divide data into segments, reconstruct signal for each, and return SNR values.
+    Divide a frame into segments, reconstruct the signal for each, and return SNR as a TimeSeries.
 
-    Args:
-        data_array: pycbc timeseries
-        model: Fine-tuned model for noise prediction
-        scaler: Scaler for normalizing/denormalizing the data
-        device: Device to run the model on ('cuda' or 'cpu')
-        segment_size: Size of each segment (default: 8192)
+    Parameters
+    ==========
+    input_frame: pycbc.types.TimeSeries
+        Input frame to process.
+    model: torch.nn.Module
+        Fine-tuned U-Net model for noise prediction.
+    scaler: sklearn scaler
+        Scaler for normalizing/denormalizing the data.
+    delta_t: float
+        Sliding window step size in seconds.
+    sampling_frequency: float
+        Sampling frequency in Hz.
+    device: str
+        Device to run the model on ('cuda' or 'cpu').
+    minimum_frequency: float
+        Lower frequency cutoff in Hz used for whitening.
+    outdir: str
+        Output directory (used for debug plots).
+    label: str
+        Label string (used for debug plot filenames).
+    detector name: str
+        Detector name (used for debug plot filenames).
+    segment_size: int, optional
+        Number of samples per segment. Default is 8192.
 
-    Returns:
-        snr_values: List of SNR values for each segment
+    Returns
+    =======
+    pycbc.types.TimeSeries: SNR values for each segment, with correct epoch and delta_t.
     """
     whitened_frame = np.array(input_frame.whiten(
         segment_duration=16, max_filter_duration=2, low_frequency_cutoff=minimum_frequency))
@@ -81,7 +100,7 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency,
         fig, ax = plt.subplots()
         ax.hist(whitened_frame, density=1, histtype='step', bins=40)
         ax.plot(x, gaussian, color='black')
-        fig.savefig(f"{outdir}/{label}_{det}_whitened.pdf")
+        fig.savefig(f"{outdir}/{label}_{detector_name}_whitened.pdf")
 
     n_samples = len(whitened_frame)
 
@@ -103,6 +122,41 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency,
 
 def joint_processing(frame_1, frame_2, model, scaler, delta_t, sampling_frequency,
                      device, minimum_frequency, segment_size=8192):
+    """
+    Process two frames jointly, computing per-segment SNR and waveform overlap.
+
+    Whitens both frames, slides a window of size segment_size across them,
+    reconstructs the signal in each segment, and computes the SNR and overlap
+    between the two detectors for each segment.
+
+    Parameters
+    ==========
+    frame_1: pycbc.types.TimeSeries
+        Input frame from the first detector.
+    frame_2: pycbc.types.TimeSeries
+        Input frame from the second detector.
+    model: torch.nn.Module
+        Fine-tuned U-Net model for noise prediction.
+    scaler: sklearn scaler
+        Scaler for normalizing/denormalizing the data.
+    delta_t: float
+        Sliding window step size in seconds.
+    sampling_frequency: float
+        Sampling frequency in Hz.
+    device: str
+        Device to run the model on ('cuda' or 'cpu').
+    minimum_frequency: float
+        Lower frequency cutoff in Hz used for whitening and overlap calculation.
+    segment_size: int, optional
+        Number of samples per segment. Default is 8192.
+
+    Returns
+    =======
+    tuple: (snr_ts_1, snr_ts_2, match_ts)
+        snr_ts_1: pycbc.types.TimeSeries, SNR timeseries for frame_1.
+        snr_ts_2: pycbc.types.TimeSeries, SNR timeseries for frame_2.
+        match_ts: pycbc.types.TimeSeries, waveform overlap between the two detectors.
+    """
     n_samples = len(frame_1)
     bins = np.arange(0, n_samples - segment_size + 1,
                      int(delta_t * sampling_frequency), dtype=int)
@@ -140,16 +194,25 @@ def joint_processing(frame_1, frame_2, model, scaler, delta_t, sampling_frequenc
 
 def reconstruct_signal(input_series, model, scaler, device):
     """
-    Reconstruct a glitch signal by subtracting predicted noise from the input.
+    Reconstruct a signal by subtracting U-Net predicted noise from the input.
 
-    Args:
-        input_series: Input time series (numpy array)
-        model: Fine-tuned model for noise prediction
-        scaler: Scaler for normalizing/denormalizing the data
-        device: Device to run the model on ('cuda' or 'cpu')
+    Scales the input, computes the STFT, passes it through the model, performs
+    the iSTFT, and subtracts the predicted noise to recover the signal.
 
-    Returns:
-        g_hat: Reconstructed glitch signal (numpy array)
+    Parameters
+    ==========
+    input_series: numpy.ndarray
+        Whitened input time series segment.
+    model: torch.nn.Module
+        Fine-tuned U-Net model for noise prediction.
+    scaler: sklearn scaler
+        Scaler for normalizing/denormalizing the data.
+    device: str
+        Device to run the model on ('cuda' or 'cpu').
+
+    Returns
+    =======
+    numpy.ndarray: Reconstructed signal with predicted noise subtracted.
     """
     # STFT parameters
     n_fft = 256
@@ -218,6 +281,24 @@ def reconstruct_signal(input_series, model, scaler, device):
 
 
 def compute_overlap(ts1, ts2, sampling_frequency, minimum_frequency):
+    """
+    Compute the normalised overlap (match) between two time series.
+
+    Parameters
+    ==========
+    ts1: numpy.ndarray
+        First time series segment.
+    ts2: numpy.ndarray
+        Second time series segment.
+    sampling_frequency: float
+        Sampling frequency in Hz.
+    minimum_frequency: float
+        Lower frequency cutoff in Hz for the match calculation.
+
+    Returns
+    =======
+    float: Normalised overlap between ts1 and ts2 in [0, 1].
+    """
     ts1 = TimeSeries(ts1, delta_t=1 / sampling_frequency, epoch=0.)
     ts2 = TimeSeries(ts2, delta_t=1 / sampling_frequency, epoch=0)
     # PSD?
@@ -227,6 +308,20 @@ def compute_overlap(ts1, ts2, sampling_frequency, minimum_frequency):
 
 
 def find_frames(frame_location, detector_network):
+    """
+    Find and load GWF frame files for the given detector network.
+
+    Parameters
+    ==========
+    frame_location: str
+        Directory containing the GWF frame files.
+    detector_network: str
+        Detector network identifier. Supported values: 'ETT', 'ET2L'.
+
+    Returns
+    =======
+    dict: Dictionary mapping detector names to pycbc TimeSeries of strain data.
+    """
     if detector_network == "ETT":
         E1 = glob(f"{frame_location}/*E1*signal_and_noise*gwf")[0]
         E2 = glob(f"{frame_location}/*E2*signal_and_noise*gwf")[0]
@@ -257,7 +352,7 @@ def main():
     """
     This function filters the data generated by generate_frames.py script.
     It filters the data using the DE model.
-    It saves the SNR estimated by the DE model in the form of numpy arrays.
+    It saves the SNR estimated by the DE model in the form of pycbc time series.
     """
     args = parse_args()
     if not os.path.isdir(args.outdir):
