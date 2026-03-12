@@ -1,4 +1,3 @@
-import scienceplots
 from glob import glob
 from pycbc.filter.matchedfilter import match
 from pycbc.frame import read_frame, write_frame
@@ -8,14 +7,11 @@ import logging
 import os
 import argparse
 import bilby
-import matplotlib.pyplot as plt
 import pickle
 # DeepExtractor is based on the U-Net architecture
 from models.models import UNET2D
 import numpy as np
 import torch
-scienceplots
-plt.style.use(['science'])
 
 logger = logging.getLogger("reconstruct")
 DEBUG = False
@@ -92,7 +88,7 @@ def process_segments(input_frame, model, scaler, delta_t, sampling_frequency,
     if DEBUG:
         x = np.arange(-5, 5, 0.1)
         gaussian = np.exp(-1 * np.power(x, 2) / 2) / np.sqrt(2 * np.pi)
-
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.hist(whitened_frame, density=1, histtype='step', bins=40)
         ax.plot(x, gaussian, color='black')
