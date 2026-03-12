@@ -9,7 +9,7 @@ python ../src/generate_frames.py --outdir frames --label ${label} \
 --n-glitches 5  \
 --n-signals 1 \
 --frame-duration 128 \
---sampling-frequency 4096
+--sampling-frequency 4096 
 
 
 python ../src/reconstruct.py --frame-directory frames --detector-network ETT --outdir ${outdir} --label ${label}

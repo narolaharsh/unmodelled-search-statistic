@@ -29,36 +29,50 @@ logger = logging.getLogger("generate_frames")
 def setup_logger(outdir, label):
     logger.setLevel(logging.INFO)
     fh = logging.FileHandler(f"{outdir}/{label}_generate_frames.log")
-    fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate whitened frame files in npz format for ET detector with gaussian noise and optional signals/glitches.")
+    parser = argparse.ArgumentParser(
+        description="Generate whitened frame files in npz format for ET "
+        "detector with gaussian noise and optional signals/glitches.")
     parser.add_argument("--seed", type=int, default=2323, help="Random seed")
-    parser.add_argument("--outdir", type=str, default="./deleteme", help="Output directory")
-    parser.add_argument("--label", type=str, default="deleteme", help="Label for output files")
-    parser.add_argument("--frame-duration", type=int, default=256, help="Frame duration in seconds")
-    parser.add_argument("--sampling-frequency", type=int, default=4096, help="Sampling frequency in Hz")
-    parser.add_argument("--minimum-frequency", type=float, default=20, help="Minimum frequency in Hz")
-    parser.add_argument("--start-time", type=float, default=3600, help="Start time in seconds")
-    parser.add_argument("--n-signals", type=int, default=1, help="Number of signals to inject")
-    parser.add_argument("--n-glitches", type=int, default=1, help="Number of glitches to inject")
-    parser.add_argument("--padding", type=float, default=5.0, help="Length of the segments near the edge where we do not inject anything")
-    parser.add_argument("--plot-timeseries", type = int, default = 1, help = "Set to 1 if you want to make plots for sanity checks.")
-    parser.add_argument("--signal-catalog", type = str, help = 'Injection file from which the parameters should be read')
-    parser.add_argument("--detector-network", type = str, default = 'ETT', help = "ETT for triangle and ET2L for the 2L design")
+    parser.add_argument("--outdir", type=str,
+                        default="./deleteme", help="Output directory")
+    parser.add_argument("--label", type=str,
+                        default="deleteme", help="Label for output files")
+    parser.add_argument("--frame-duration", type=int,
+                        default=256, help="Frame duration in seconds")
+    parser.add_argument("--sampling-frequency", type=int,
+                        default=4096, help="Sampling frequency in Hz")
+    parser.add_argument("--minimum-frequency", type=float,
+                        default=20, help="Minimum frequency in Hz")
+    parser.add_argument("--start-time", type=float,
+                        default=3600, help="Start time in seconds")
+    parser.add_argument("--n-signals", type=int, default=1,
+                        help="Number of signals to inject")
+    parser.add_argument("--n-glitches", type=int, default=1,
+                        help="Number of glitches to inject")
+    parser.add_argument("--padding", type=float, default=5.0,
+                        help="Length of the segments near the edge where we do not inject anything")
+    parser.add_argument("--plot-timeseries", type=int, default=1,
+                        help="Set to 1 if you want to make plots for sanity checks.")
+    parser.add_argument("--signal-catalog", type=str,
+                        help='Injection file from which the parameters should be read')
+    parser.add_argument("--detector-network", type=str, default='ETT',
+                        help="ETT for triangle and ET2L for the 2L design")
     return parser.parse_args()
 
 
-add_detector_on_earth("ETSar", longitude = 9.4167 * np.pi / 180, latitude = 40.5167 * np.pi/180, yangle=(160.5674 * np.pi / 180.0),
+add_detector_on_earth("ETSar", longitude=9.4167 * np.pi / 180, latitude=40.5167 * np.pi / 180,
+                      yangle=(160.5674 * np.pi / 180.0),
                       xlength=15e3, ylength=15e3)
 
-
-
-add_detector_on_earth("ETLim", longitude = 5.92056 * np.pi/180, latitude = 50.72305 * np.pi/180, yangle=(115.0 * np.pi / 180),
+add_detector_on_earth("ETLim", longitude=5.92056 * np.pi / 180,
+                      latitude=50.72305 * np.pi / 180, yangle=(115.0 * np.pi / 180),
                       xlength=15e3, ylength=15e3)
-
 
 
 def add_timeseries_dictionary(noise_dict, strain_dict):
@@ -120,16 +134,17 @@ def write_all_frames(noise_dict, strain_dict, signal_plus_noise_dict,
     for det, spn in signal_plus_noise_dict.items():
         channel = f"{det}:STRAIN"
         ts = TimeSeries(spn, delta_t=delta_t, epoch=epoch)
-        write_frame(f"{outdir}/{label}_{det}_signal_and_noise.gwf", channel, ts)
+        write_frame(
+            f"{outdir}/{label}_{det}_signal_and_noise.gwf", channel, ts)
 
 
 _PSD_FILES = {
-    'ETT':  './noise_curves/ET_D_psd.txt',
+    'ETT': './noise_curves/ET_D_psd.txt',
     'ET2L': './noise_curves/ET_D_psd_15km.txt',
 }
 
 
-def load_psd(detector_network, sampling_frequency, minimum_frequency, delta_f=1.0/8):
+def load_psd(detector_network, sampling_frequency, minimum_frequency, delta_f=1.0 / 8):
     """Load the ET PSD for the given detector network.
 
     Parameters
@@ -148,7 +163,8 @@ def load_psd(detector_network, sampling_frequency, minimum_frequency, delta_f=1.
     pycbc.types.FrequencySeries
     """
     if detector_network not in _PSD_FILES:
-        raise ValueError(f"Detector network does not exist: '{detector_network}'")
+        raise ValueError(
+            f"Detector network does not exist: '{detector_network}'")
     _scripts_dir = os.path.dirname(os.path.abspath(__file__))
     length = int(sampling_frequency / 2 / delta_f) + 1
     with chdir(_scripts_dir):
@@ -189,7 +205,8 @@ def noise_generator(detector_network, sampling_frequency, frame_duration,
     else:
         raise ValueError("Detector network does not exist")
 
-    power_spectral_density = load_psd(detector_network, sampling_frequency, minimum_frequency)
+    power_spectral_density = load_psd(
+        detector_network, sampling_frequency, minimum_frequency)
 
     noise_dict = {}
     for i, det in enumerate(detectors):
@@ -200,10 +217,9 @@ def noise_generator(detector_network, sampling_frequency, frame_duration,
                                        filter_duration=128)
         epoch = lal.LIGOTimeGPS(detector_noise.sample_times[0])
         noise_dict[det] = TimeSeries(np.array(detector_noise),
-                                           delta_t=1. / sampling_frequency, epoch=epoch)
+                                     delta_t=1. / sampling_frequency, epoch=epoch)
 
     return noise_dict
-
 
 
 def get_antenna_patterns(detectors, ra, dec, psi, geocent_time):
@@ -252,13 +268,13 @@ def project_hphc_to_detectors(detectors, hp, hc, ra, dec, psi, geocent_time, ear
         return [det.project_wave(hp=hp, hc=hc, ra=ra, dec=dec, polarization=psi)
                 for det in detectors]
     else:
-        antenna_patterns = get_antenna_patterns(detectors, ra, dec, psi, geocent_time)
-        return [fp*hp + fc*hc for fp, fc in antenna_patterns]
+        antenna_patterns = get_antenna_patterns(
+            detectors, ra, dec, psi, geocent_time)
+        return [fp * hp + fc * hc for fp, fc in antenna_patterns]
 
 
 def signal_generator(parameters: dict, detector_network: list, approximant: str, sampling_frequency: float,
-                 minimum_frequency: float, reference_frequency: float, earth_rotation: bool):
-    
+                     minimum_frequency: float, reference_frequency: float, earth_rotation: bool):
     """Generate detector-frame time-domain signals for a network of detectors.
 
     Computes the plus and cross polarizations of a CBC waveform using
@@ -292,40 +308,39 @@ def signal_generator(parameters: dict, detector_network: list, approximant: str,
     list of pycbc.types.timeseries.TimeSeries
         Detector-frame strain time series, one per detector in detector_network.
     """
-    
-    hp, hc = get_td_waveform(approximant = approximant,
-                             mass1 = parameters['mass_1'],
-                             mass2 = parameters['mass_2'],
-                             spin1x = parameters['spin_1x'], 
-                             spin1y = parameters['spin_1y'],
-                             spin1z = parameters['spin_1z'],
-                             spin2x = parameters['spin_2x'],
-                             spin2y = parameters['spin_2y'],
-                             spin2z = parameters['spin_2z'],
-                             distance = parameters['luminosity_distance'],
-                             coa_phase = parameters['phase'],
-                             inclination = parameters['theta_jn'],
-                             f_lower = minimum_frequency,
-                             f_ref = reference_frequency,
-                             delta_t = 1/sampling_frequency)
-    
+
+    hp, hc = get_td_waveform(approximant=approximant,
+                             mass1=parameters['mass_1'],
+                             mass2=parameters['mass_2'],
+                             spin1x=parameters['spin_1x'],
+                             spin1y=parameters['spin_1y'],
+                             spin1z=parameters['spin_1z'],
+                             spin2x=parameters['spin_2x'],
+                             spin2y=parameters['spin_2y'],
+                             spin2z=parameters['spin_2z'],
+                             distance=parameters['luminosity_distance'],
+                             coa_phase=parameters['phase'],
+                             inclination=parameters['theta_jn'],
+                             f_lower=minimum_frequency,
+                             f_ref=reference_frequency,
+                             delta_t=1 / sampling_frequency)
+
     hp.start_time += parameters['geocent_time']
     hc.start_time += parameters['geocent_time']
 
-    
-    ht_list = project_hphc_to_detectors(detector_network, hp, hc, parameters['ra'], parameters['dec'], parameters['psi'], parameters['geocent_time'], earth_rotation)
+    ht_list = project_hphc_to_detectors(
+        detector_network, hp, hc, parameters['ra'], parameters['dec'],
+        parameters['psi'], parameters['geocent_time'], earth_rotation)
     return ht_list
 
 
-def convert_parameters(parameters, reference_frequency = 50.0):
+def convert_parameters(parameters, reference_frequency=50.0):
     parameters['reference_frequency'] = reference_frequency
-    parameters = conversion.generate_mass_parameters(parameters, source = False)
+    parameters = conversion.generate_mass_parameters(parameters, source=False)
 
     parameters = conversion.generate_component_spins(parameters)
 
     return parameters
-
-
 
 
 def inject_signal_into_strain(strain_series, signal, time_series, sampling_frequency):
@@ -363,7 +378,8 @@ def inject_signal_into_strain(strain_series, signal, time_series, sampling_frequ
 
     else:
         # Signal fully spans the strain window
-        time_index = int((time_series[0] - signal_start_time) * sampling_frequency + 0.5)
+        time_index = int(
+            (time_series[0] - signal_start_time) * sampling_frequency + 0.5)
         strain_series[:] += signal[time_index:time_index + len(strain_series)]
 
     return strain_series
@@ -371,13 +387,13 @@ def inject_signal_into_strain(strain_series, signal, time_series, sampling_frequ
 
 _NETWORK_CONFIG = {
     'ET2L': (['ETLim', 'ETSar'], [Detector('ETLim'), Detector('ETSar')]),
-    'ETT':  (['E1', 'E2', 'E3'],  [Detector('E1'),   Detector('E2'),   Detector('E3')]),
+    'ETT': (['E1', 'E2', 'E3'], [Detector('E1'), Detector('E2'), Detector('E3')])
 }
 
 
 def batch_signal_generator(injection_catalog, injection_times, detector_network,
-                            sample_times, sampling_frequency, minimum_frequency,
-                            reference_frequency, approximant='IMRPhenomTPHM', psd=None):
+                           sample_times, sampling_frequency, minimum_frequency,
+                           reference_frequency, approximant='IMRPhenomTPHM', psd=None):
     """Build the network, initialise strain arrays, and inject all signals.
 
     Parameters
@@ -407,7 +423,8 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
         Per-detector strain arrays with all signals injected.
     """
     if detector_network not in _NETWORK_CONFIG:
-        raise NotImplementedError(f"No such detector network: '{detector_network}'")
+        raise NotImplementedError(
+            f"No such detector network: '{detector_network}'")
 
     det_names, network = _NETWORK_CONFIG[detector_network]
     n_samples = len(sample_times)
@@ -429,7 +446,7 @@ def batch_signal_generator(injection_catalog, injection_times, detector_network,
                 psd_interp = pycbc.psd.interpolate(psd, ht_tilde.delta_f)
                 snrs[name] = float(pycbc_sigma(ht_tilde, psd=psd_interp,
                                                low_frequency_cutoff=minimum_frequency))
-                #print(snrs[name])
+                # print(snrs[name])
             snrs['network'] = float(np.sqrt(sum(v**2 for v in snrs.values())))
             snr_catalog.append(snrs)
             logger.info("Injection %d optimal SNR: %s", ii,
@@ -477,7 +494,8 @@ def plot_timeseries(noise_dict, signal_dict, sample_times, outdir, label):
     strain_array = np.array(list(signal_dict.values()))
     null_stream = np.sum(strain_array, axis=0)
 
-    fig, axes = plt.subplots(n_det + 1, 1, figsize=(10, 3 * n_det), sharex=True, sharey=True)
+    fig, axes = plt.subplots(
+        n_det + 1, 1, figsize=(10, 3 * n_det), sharex=True, sharey=True)
     for ax, strain in zip(axes, strain_array):
         ax.plot(sample_times, strain)
         ax.set_ylabel("Strain")
@@ -501,64 +519,64 @@ def main():
     injection_catalog = json.load(open(args.signal_catalog, "r"))
     reference_frequency = 50.0
 
-    signal_injection_times = np.random.uniform(0, args.frame_duration, args.n_signals)
-    np.savetxt(f"{args.outdir}/{args.label}_injection_times.txt", signal_injection_times, fmt="%.6f")
+    signal_injection_times = np.random.uniform(
+        0, args.frame_duration, args.n_signals)
+    logging.getLogger("generate_frames").info(
+        "Signal injection times: %s", [f"{t:.6f}" for t in signal_injection_times])
 
-    psd = load_psd(args.detector_network, args.sampling_frequency, args.minimum_frequency)
+    psd = load_psd(args.detector_network,
+                   args.sampling_frequency, args.minimum_frequency)
 
-    
-    ########################################
-    ###### Generate coloured noise ########
+    # Generate coloured noise
     noise_dict = noise_generator(args.detector_network, args.sampling_frequency,
                                  args.frame_duration, args.minimum_frequency, args.seed)
 
-   
-    ########################################
-    ###### Inject glitch  ##################
+    # Inject glitch
     if args.n_glitches != 0:
         logger.info("Injecting glitches...")
-        noise_dict, glitch_time, glitch_ifo, glitch_snrs = utils.inject_glitch(noise_dict, n_glitches=args.n_glitches, minimum_frequency = args.minimum_frequency, power_spectral_density=psd, seed=args.seed, outdir=args.outdir, label=args.label)
+        noise_dict, glitch_time, glitch_ifo, glitch_snrs = utils.inject_glitch(
+            noise_dict, n_glitches=args.n_glitches, minimum_frequency=args.minimum_frequency,
+            power_spectral_density=psd, seed=args.seed, outdir=args.outdir, label=args.label)
         for t, ifo, snr in zip(glitch_time, glitch_ifo, glitch_snrs):
             logger.info("Glitch: time=%.2f, ifo=%d, snr=%.2f", t, ifo, snr)
 
-
-
-
-    ########################################
-    ######### Generate all signals #########
+    # Generate all signals
     total_time = int(args.frame_duration)
-    sample_times = np.linspace(start=0, stop=total_time, num=total_time*args.sampling_frequency, endpoint=True)
-    
+    sample_times = np.linspace(
+        start=0, stop=total_time, num=total_time * args.sampling_frequency, endpoint=True)
+
     signal_dict, snr_catalog = batch_signal_generator(injection_catalog, signal_injection_times,
                                                       args.detector_network, sample_times,
                                                       args.sampling_frequency, args.minimum_frequency,
                                                       reference_frequency, psd=psd)
     if snr_catalog:
         det_names = list(snr_catalog[0].keys())
-        snr_array = np.array([[entry[k] for k in det_names] for entry in snr_catalog])
-        header = "  ".join(det_names)
-        np.savetxt(f"{args.outdir}/{args.label}_optimal_snr.txt", snr_array,
-                   header=header, fmt="%.4f")
+        for ii, entry in enumerate(snr_catalog):
+            logger.info(
+                "Injection %d optimal SNR: %s", ii,
+                {k: f"{entry[k]:.4f}" for k in det_names})
 
+    # Add signals to noise
+    if args.n_signals != 0:
 
-    ##############################################
-    ###### Add signals to noise  ################
-    if args.n_signals!=0:
-
-        signal_plus_noise_dict = add_timeseries_dictionary(noise_dict, signal_dict)
+        signal_plus_noise_dict = add_timeseries_dictionary(
+            noise_dict, signal_dict)
     else:
         signal_plus_noise_dict = noise_dict
 
-    if args.detector_network=="ETT":
+    if args.detector_network == "ETT":
         null_stream = sum(signal_plus_noise_dict.values())
-        write_frame(f"{args.outdir}/{args.label}_null_stream.gwf", "NULL:STRAIN", null_stream)
+        write_frame(f"{args.outdir}/{args.label}_null_stream.gwf",
+                    "NULL:STRAIN", null_stream)
 
     write_all_frames(noise_dict, signal_dict, signal_plus_noise_dict,
                      sample_times, args.sampling_frequency,
                      args.outdir, args.label, args.frame_duration)
 
     if args.plot_timeseries:
-        plot_timeseries(noise_dict, signal_dict, sample_times, args.outdir, args.label)
+        plot_timeseries(noise_dict, signal_dict,
+                        sample_times, args.outdir, args.label)
+
 
 if __name__ == "__main__":
     main()
