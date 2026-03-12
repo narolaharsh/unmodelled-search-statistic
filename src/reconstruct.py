@@ -108,8 +108,13 @@ def joint_processing(frame_1, frame_2, model, scaler, delta_t, sampling_frequenc
                      int(delta_t * sampling_frequency), dtype=int)
     time_stamps = bins[:-1] / sampling_frequency
 
-    whitened_frame_1 = np.array(frame_1.whiten())
-    whitened_frame_2 = np.array(frame_2.whiten())
+    whitened_frame_1 = np.array(frame_1.whiten(segment_duration=16,
+                                               max_filter_duration=2, low_frequency_cutoff=minimum_frequency))
+    whitened_frame_1 /= np.std(whitened_frame_1)
+
+    whitened_frame_2 = np.array(frame_2.whiten(segment_duration=16,
+                                               max_filter_duration=2, low_frequency_cutoff=minimum_frequency))
+    whitened_frame_2 /= np.std(whitened_frame_2)
 
     snr_values_1, snr_values_2, match_values = [], [], []
     for ii in tqdm(range(len(bins) - 1)):
@@ -300,11 +305,11 @@ def main():
         dex_snr = {}
         logger.info("L-shape found. Computing mismatch integral")
 
-        (dex_snr['ETSar'], dex_snr['ETLim'],
-         dex_snr["mismatch_overlap"], dex_snr['time_stamps']) = joint_processing(
-            frame_dictionary['ETSar'], frame_dictionary['ETLim'],
-            model_fine_tuned, scaler, args.delta_t, args.sampling_frequency,
-            device, args.minimum_frequency)
+        dex_snr['ETSar'], dex_snr['ETLim'],
+        dex_snr["mismatch_overlap"] = joint_processing(frame_dictionary['ETSar'],
+                                                       frame_dictionary['ETLim'],
+                                                       model_fine_tuned, scaler, args.delta_t, args.sampling_frequency,
+                                                       device, args.minimum_frequency)
 
         dex_snr['network_snr'] = np.sqrt(
             sum(dex_snr[det] ** 2 for det in detectors))
